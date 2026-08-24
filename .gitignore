@@ -1,0 +1,24 @@
+# dependencies
+**/node_modules
+
+# next.js
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# user-uploaded photos (synced from local folders, not source-controlled)
+frontend/public/uploads
+
+# OS
+.DS_Store
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

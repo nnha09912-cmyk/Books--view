@@ -1,0 +1,176 @@
+// Prisma schema for Books View
+// Source of truth: docs/07_DATABASE_PLAN.md
+// Phase 1: schema only, no migrations yet (see docs/12_ROADMAP.md)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Studio {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  slug             String   @unique
+  email            String   @unique
+  passwordHash     String
+  logoUrl          String?
+  description      String?
+  phone            String?
+  website          String?
+  apiKey           String?  @unique
+  isActive         Boolean  @default(true)
+  googleDriveToken Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  albums      Album[]
+  permissions Permission[]
+
+  @@map("studios")
+}
+
+model Album {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studioId            String    @db.Uuid
+  name                String
+  description         String?
+  slug                String?
+  template            String    @default("classic")
+  linkToken           String    @unique
+  passwordHash        String?
+  status              String    @default("active")
+  expiryDate          DateTime?
+  photoCount          Int       @default(0)
+  googleDriveFolderId String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  studio    Studio     @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  folders   Folder[]
+  photos    Photo[]
+  customers Customer[]
+
+  @@index([studioId])
+  @@index([linkToken])
+  @@map("albums")
+}
+
+model Folder {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  albumId             String   @db.Uuid
+  parentFolderId      String?  @db.Uuid
+  name                String
+  description         String?
+  orderIndex          Int?
+  googleDriveFolderId String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  album        Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  parentFolder Folder?  @relation("FolderHierarchy", fields: [parentFolderId], references: [id], onDelete: Cascade)
+  childFolders Folder[] @relation("FolderHierarchy")
+  photos       Photo[]
+
+  @@index([albumId])
+  @@map("folders")
+}
+
+model Photo {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  albumId       String   @db.Uuid
+  folderId      String?  @db.Uuid
+  filename      String
+  originalUrl   String
+  thumbnailUrl  String?
+  previewUrl    String?
+  width         Int?
+  height        Int?
+  fileSize      Int?
+  mimeType      String?
+  likeCount     Int      @default(0)
+  starCount     Int      @default(0)
+  orderIndex    Int?
+  googleDriveId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  album      Album       @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  folder     Folder?     @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  selections Selection[]
+  comments   Comment[]
+
+  @@index([albumId])
+  @@index([folderId])
+  @@map("photos")
+}
+
+model Customer {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  albumId      String    @db.Uuid
+  name         String
+  email        String?
+  phone        String?
+  guestToken   String?   @unique
+  lastViewedAt DateTime?
+  submittedAt  DateTime?
+  /// Identified via the album's shared password (couple/wedding) rather than
+  /// name+phone (guests) — the only customers allowed to use Star, not just Like.
+  isPrimary    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  album      Album       @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  selections Selection[]
+  comments   Comment[]
+
+  @@unique([albumId, email])
+  @@index([albumId])
+  @@map("customers")
+}
+
+model Selection {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId String   @db.Uuid
+  photoId    String   @db.Uuid
+  likeType   String // 'like' (♥) or 'star' (⭐)
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  photo    Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, photoId, likeType])
+  @@index([customerId])
+  @@index([photoId])
+  @@map("selections")
+}
+
+model Comment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  photoId    String   @db.Uuid
+  customerId String   @db.Uuid
+  text       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  photo    Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model Permission {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studioId     String   @db.Uuid
+  resourceType String // 'album', 'api', etc.
+  resourceId   String?  @db.Uuid
+  action       String // 'read', 'write', 'delete'
+  createdAt    DateTime @default(now())
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@map("permissions")
+}

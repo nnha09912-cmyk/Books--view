@@ -1,0 +1,55 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/db";
+import { getCurrentStudio } from "@/lib/auth";
+
+export async function GET() {
+  const studio = await getCurrentStudio();
+  if (!studio) {
+    return NextResponse.json({ error: { message: "Chưa đăng nhập" } }, { status: 401 });
+  }
+  return NextResponse.json({
+    studio: {
+      id: studio.id,
+      name: studio.name,
+      email: studio.email,
+      slug: studio.slug,
+      phone: studio.phone,
+      description: studio.description,
+    },
+  });
+}
+
+const patchSchema = z.object({
+  name: z.string().min(1).optional(),
+  phone: z.string().optional(),
+  description: z.string().optional(),
+});
+
+export async function PATCH(req: NextRequest) {
+  const current = await getCurrentStudio();
+  if (!current) {
+    return NextResponse.json({ error: { message: "Chưa đăng nhập" } }, { status: 401 });
+  }
+  const parsed = patchSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: { message: "Dữ liệu không hợp lệ" } },
+      { status: 400 }
+    );
+  }
+  const studio = await prisma.studio.update({
+    where: { id: current.id },
+    data: parsed.data,
+  });
+  return NextResponse.json({
+    studio: {
+      id: studio.id,
+      name: studio.name,
+      email: studio.email,
+      slug: studio.slug,
+      phone: studio.phone,
+      description: studio.description,
+    },
+  });
+}

@@ -1,0 +1,61 @@
+export interface AlbumSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  template: string;
+  photoCount: number;
+  customerCount: number;
+  status: string;
+  linkToken: string;
+  createdAt: string;
+  expiryDate: string | null;
+}
+
+export interface AlbumPhoto {
+  id: string;
+  filename: string;
+  thumbnailUrl: string | null;
+  previewUrl: string | null;
+  originalUrl?: string;
+  likeCount: number;
+  starCount: number;
+  liked?: boolean;
+  starred?: boolean;
+}
+
+export interface AlbumCustomer {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  lastViewedAt: string | null;
+  submittedAt: string | null;
+  likes: number;
+  stars: number;
+  selectedFilenames: string[];
+}
+
+export interface PublicAlbumInfo {
+  name: string;
+  description: string | null;
+  template: string;
+  photoCount: number;
+  requiresPassword: boolean;
+  expiryDate: string | null;
+  studioName: string;
+}
+
+export interface AlbumDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  template: string;
+  status: string;
+  linkToken: string;
+  photoCount: number;
+  expiryDate: string | null;
+  passwordProtected: boolean;
+  createdAt: string;
+  photos: AlbumPhoto[];
+  customers: AlbumCustomer[];
+}

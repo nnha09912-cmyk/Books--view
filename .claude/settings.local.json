@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk ls *)",
+      "Bash(mkdir -p \"/Users/duytran/Downloads/PHAM MEM/6._Wed app/view-photo/docs\")"
+    ]
+  }
+}
