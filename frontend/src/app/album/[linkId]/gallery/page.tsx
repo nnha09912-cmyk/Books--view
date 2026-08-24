@@ -83,6 +83,9 @@ export default function GalleryPage({
   const [folderLastClickedIndex, setFolderLastClickedIndex] = useState<number | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const lastWheelTimeRef = useRef(0);
+  const touchStartXRef = useRef<number | null>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
   const [lightboxId, setLightboxId] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
@@ -456,6 +459,44 @@ export default function GalleryPage({
   const carouselPhotos = sortedPhotos;
   const coverPhoto = photos.find((p) => p.id === coverPhotoId) ?? photos[0];
 
+  function carouselStep(dir: 1 | -1) {
+    if (carouselPhotos.length === 0) return;
+    setCarouselIndex((i) => (i + dir + carouselPhotos.length) % carouselPhotos.length);
+  }
+
+  // Touch swipe (mobile) — swipe left advances, swipe right goes back.
+  function handleCarouselTouchStart(e: React.TouchEvent) {
+    touchStartXRef.current = e.touches[0].clientX;
+  }
+  function handleCarouselTouchEnd(e: React.TouchEvent) {
+    if (touchStartXRef.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (Math.abs(dx) < 40) return;
+    carouselStep(dx < 0 ? 1 : -1);
+  }
+
+  // Mouse wheel / trackpad over the carousel steps one card per "tick" —
+  // attached as a native, non-passive listener (React's synthetic onWheel
+  // can't reliably preventDefault) so scrolling the wheel drives the
+  // carousel instead of also scrolling the page underneath it.
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el || view !== "carousel") return;
+    function onWheel(e: WheelEvent) {
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (Math.abs(delta) < 12) return;
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastWheelTimeRef.current < 300) return;
+      lastWheelTimeRef.current = now;
+      carouselStep(delta > 0 ? 1 : -1);
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, carouselPhotos.length]);
+
   if (!album) return null;
 
   return (
@@ -705,7 +746,12 @@ export default function GalleryPage({
 
       {/* 3D Carousel — geometry per docs/3d-carousel reference spec */}
       {view === "carousel" && (
-        <div className="gh-carousel active">
+        <div
+          ref={carouselRef}
+          className="gh-carousel active"
+          onTouchStart={handleCarouselTouchStart}
+          onTouchEnd={handleCarouselTouchEnd}
+        >
           <button
             className="gh-carousel-nav gh-carousel-prev"
             type="button"
@@ -757,6 +803,25 @@ export default function GalleryPage({
                     priority={abs === 0}
                     loading={abs === 0 ? undefined : "lazy"}
                   />
+                  {(photo.liked || photo.starred || commentedIds.has(photo.id)) && (
+                    <div className="tile-badges">
+                      {photo.liked && (
+                        <span className="b b-like">
+                          <Heart size={12} fill="#fff" color="#fff" />
+                        </span>
+                      )}
+                      {photo.starred && (
+                        <span className="b b-star" style={{ background: "rgba(212,165,116,.9)" }}>
+                          <Star size={12} fill="#1A1A1A" color="#1A1A1A" />
+                        </span>
+                      )}
+                      {commentedIds.has(photo.id) && (
+                        <span className="b b-comment" style={{ background: "rgba(76,139,245,.9)" }}>
+                          <MessageSquareMore size={12} color="#fff" />
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
