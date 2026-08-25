@@ -67,9 +67,10 @@ export default function AlbumsPage() {
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="active">Đang mở</option>
+          <option value="closed">Đóng</option>
           <option value="expired">Hết hạn</option>
           <option value="archived">Lưu trữ</option>
-          <option value="completed">Hoàn tất</option>
+          <option value="completed">Hoàn thành</option>
         </select>
         <select
           className="input"
@@ -88,7 +89,17 @@ export default function AlbumsPage() {
       ) : (
         <div className="album-grid">
           {filtered.map((album) => (
-            <AlbumCard key={album.id} album={album} />
+            <AlbumCard
+              key={album.id}
+              album={album}
+              onStatusChange={(id, status) =>
+                setAlbums((prev) =>
+                  prev
+                    ? prev.map((a) => (a.id === id ? { ...a, status } : a))
+                    : prev
+                )
+              }
+            />
           ))}
 
           <Link

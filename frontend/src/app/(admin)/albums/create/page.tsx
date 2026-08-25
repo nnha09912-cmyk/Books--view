@@ -24,7 +24,9 @@ export default function AlbumCreatePage() {
   const [description, setDescription] = useState(
     "Cảm ơn anh chị đã tin tưởng Books View. Vui lòng chọn ảnh yêu thích trước ngày 20/09."
   );
+  const [driveLink, setDriveLink] = useState("");
   const [creating, setCreating] = useState(false);
+  const [creatingLabel, setCreatingLabel] = useState("Đang tạo...");
 
   if (studioLoading || !studio) return null;
 
@@ -34,12 +36,32 @@ export default function AlbumCreatePage() {
       return;
     }
     setCreating(true);
+    setCreatingLabel("Đang tạo...");
     try {
       const res = await api<{ id: string }>("/api/albums", {
         method: "POST",
         body: JSON.stringify({ name, description }),
       });
-      toast("Đã tạo album");
+
+      if (driveLink.trim()) {
+        setCreatingLabel("Đang nhập ảnh từ Drive...");
+        try {
+          const drive = await api<{ added: number; skipped: number; errors: string[] }>(
+            `/api/albums/${res.id}/photos/drive-import`,
+            { method: "POST", body: JSON.stringify({ driveLink: driveLink.trim() }) }
+          );
+          toast(`Đã tạo album — nhập ${drive.added} ảnh từ Drive`);
+        } catch (driveErr) {
+          toast(
+            `Đã tạo album, nhưng nhập Drive lỗi: ${
+              driveErr instanceof ApiError ? driveErr.message : "Không rõ lỗi"
+            }`
+          );
+        }
+      } else {
+        toast("Đã tạo album");
+      }
+
       router.push(`/albums/${res.id}`);
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Không thể tạo album");
@@ -144,17 +166,20 @@ export default function AlbumCreatePage() {
                   <HardDrive size={20} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 600 }}>Google Drive folder đã liên kết</p>
-                  <p className="text-sm mono" style={{ marginTop: 2 }}>
-                    drive.google.com/drive/folders/1AbC…xyz
+                  <label htmlFor="al-drive" style={{ fontWeight: 600, display: "block" }}>
+                    Link Google Drive <span className="text-sm">(tuỳ chọn — có thể thêm sau)</span>
+                  </label>
+                  <p className="text-sm" style={{ color: "var(--muted-foreground)", margin: "2px 0 8px" }}>
+                    Dán link folder đã chia sẻ ở chế độ &quot;Anyone with the link&quot; — Books View sẽ tự nhập ảnh vào album ngay sau khi tạo.
                   </p>
-                  <p className="text-sm" style={{ color: "var(--muted-foreground)", marginTop: 4 }}>
-                    Đồng bộ Google Drive chưa được nối (Phase kế tiếp)
-                  </p>
+                  <input
+                    className="input mono"
+                    id="al-drive"
+                    value={driveLink}
+                    onChange={(e) => setDriveLink(e.target.value)}
+                    placeholder="drive.google.com/drive/folders/..."
+                  />
                 </div>
-                <Button variant="ghost" size="sm" disabled>
-                  Đổi
-                </Button>
               </div>
 
               <div className="field">
@@ -198,7 +223,7 @@ export default function AlbumCreatePage() {
                   <Link href="/albums">← Quay lại</Link>
                 </Button>
                 <Button onClick={handleCreate} disabled={creating}>
-                  {creating ? "Đang tạo..." : "Tiếp tục →"}
+                  {creating ? creatingLabel : "Tiếp tục →"}
                 </Button>
               </div>
             </div>

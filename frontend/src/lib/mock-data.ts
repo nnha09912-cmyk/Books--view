@@ -1,10 +1,16 @@
-export type AlbumStatus = "active" | "expired" | "archived" | "completed";
+export type AlbumStatus =
+  | "active"
+  | "closed"
+  | "expired"
+  | "archived"
+  | "completed";
 
 export const albumStatusLabel: Record<string, string> = {
   active: "Đang mở",
+  closed: "Đóng",
   expired: "Hết hạn",
   archived: "Lưu trữ",
-  completed: "Hoàn tất",
+  completed: "Hoàn thành",
 };
 
 export const albumStatusBadge: Record<
@@ -12,6 +18,7 @@ export const albumStatusBadge: Record<
   "accent" | "secondary" | "success"
 > = {
   active: "accent",
+  closed: "secondary",
   expired: "secondary",
   archived: "secondary",
   completed: "success",

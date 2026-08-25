@@ -3,12 +3,17 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/db";
 import { getCurrentStudio } from "@/lib/auth";
+import { resizeForWeb } from "@/lib/image-resize";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function sanitizeFilename(name: string) {
   return name.replace(/[\\/:*?"<>|]/g, "_").replace(/^\.+/, "");
+}
+
+function previewFilename(filename: string) {
+  return filename.replace(/\.[^.]+$/, "") + ".jpg";
 }
 
 /** Syncs locally-picked photos (via the browser's File System Access API on
@@ -46,7 +51,9 @@ export async function POST(
   const existingByName = new Map(existing.map((p) => [p.filename, p.id]));
 
   const uploadDir = path.join(process.cwd(), "public", "uploads", album.id);
+  const previewDir = path.join(uploadDir, "previews");
   await mkdir(uploadDir, { recursive: true });
+  await mkdir(previewDir, { recursive: true });
 
   let added = 0;
   let overwritten = 0;
@@ -66,10 +73,24 @@ export async function POST(
       await writeFile(path.join(uploadDir, filename), bytes);
       const url = `/uploads/${album.id}/${encodeURIComponent(filename)}`;
 
+      // Web-facing views (grid/masonry/carousel/lightbox) load the resized
+      // preview — same URL everywhere so the browser has it cached before
+      // the lightbox even opens. originalUrl keeps the untouched file for
+      // the explicit Download action.
+      const previewName = previewFilename(filename);
+      const previewBytes = await resizeForWeb(bytes);
+      await writeFile(path.join(previewDir, previewName), previewBytes);
+      const previewUrl = `/uploads/${album.id}/previews/${encodeURIComponent(previewName)}`;
+
       if (already) {
         await prisma.photo.update({
           where: { id: already },
-          data: { originalUrl: url, thumbnailUrl: url, previewUrl: url, fileSize: bytes.length },
+          data: {
+            originalUrl: url,
+            thumbnailUrl: previewUrl,
+            previewUrl,
+            fileSize: bytes.length,
+          },
         });
         overwritten++;
       } else {
@@ -78,8 +99,8 @@ export async function POST(
             albumId: album.id,
             filename,
             originalUrl: url,
-            thumbnailUrl: url,
-            previewUrl: url,
+            thumbnailUrl: previewUrl,
+            previewUrl,
             fileSize: bytes.length,
             mimeType: file.type || null,
           },

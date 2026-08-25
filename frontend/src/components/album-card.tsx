@@ -1,10 +1,33 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
-import { albumStatusBadge, albumStatusLabel, picsum } from "@/lib/mock-data";
+import { toast } from "sonner";
+import { StatusMenu } from "@/components/status-menu";
+import { picsum } from "@/lib/mock-data";
+import { api, ApiError } from "@/lib/api-client";
 import type { AlbumSummary } from "@/lib/types";
 
-export function AlbumCard({ album }: { album: AlbumSummary }) {
+export function AlbumCard({
+  album,
+  onStatusChange,
+}: {
+  album: AlbumSummary;
+  onStatusChange?: (id: string, status: string) => void;
+}) {
+  async function handleStatusChange(status: string) {
+    try {
+      await api(`/api/albums/${album.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      onStatusChange?.(album.id, status);
+      toast("Đã đổi trạng thái");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không thể đổi trạng thái");
+    }
+  }
+
   return (
     <Link className="card interactive album-card" href={`/albums/${album.id}`}>
       <div className="thumb">
@@ -22,9 +45,7 @@ export function AlbumCard({ album }: { album: AlbumSummary }) {
           <span className="text-sm">
             {album.photoCount} ảnh · {album.customerCount} khách
           </span>
-          <Badge variant={albumStatusBadge[album.status] ?? "secondary"}>
-            {albumStatusLabel[album.status] ?? album.status}
-          </Badge>
+          <StatusMenu status={album.status} onChange={handleStatusChange} />
         </div>
       </div>
     </Link>

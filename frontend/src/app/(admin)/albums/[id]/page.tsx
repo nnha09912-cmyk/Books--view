@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Share2, Heart, Star, RefreshCw, AlertTriangle } from "lucide-react";
+import { Share2, Heart, Star, RefreshCw, AlertTriangle, HardDrive } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { picsum, albumStatusBadge, albumStatusLabel } from "@/lib/mock-data";
+import { StatusMenu } from "@/components/status-menu";
+import { picsum } from "@/lib/mock-data";
 import { useStudio } from "@/lib/use-studio";
 import { api, ApiError } from "@/lib/api-client";
 import { isFileSystemAccessSupported, buildSourceIndex } from "@/lib/fs-filter";
@@ -42,6 +43,19 @@ export default function AlbumDetailPage({
       .catch((err) => {
         if (err instanceof ApiError && err.status === 404) setNotFoundState(true);
       });
+  }
+
+  async function handleStatusChange(status: string) {
+    try {
+      await api(`/api/albums/${params.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setAlbum((prev) => (prev ? { ...prev, status } : prev));
+      toast("Đã đổi trạng thái");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không thể đổi trạng thái");
+    }
   }
 
   useEffect(() => {
@@ -92,9 +106,7 @@ export default function AlbumDetailPage({
             <div>
               <div className="flex items-center gap-sm">
                 <h1 style={{ fontSize: 26 }}>{album.name}</h1>
-                <Badge variant={albumStatusBadge[album.status] ?? "secondary"}>
-                  {albumStatusLabel[album.status] ?? album.status}
-                </Badge>
+                <StatusMenu status={album.status} onChange={handleStatusChange} />
               </div>
               <p className="text-secondary" style={{ marginTop: 6 }}>
                 {album.photoCount} ảnh · {album.customers.length} khách · Template{" "}
@@ -120,7 +132,11 @@ export default function AlbumDetailPage({
             </TabsList>
 
             <TabsContent value="overview" className="mt-lg">
-              <OverviewTab album={album} shareLink={shareLink} />
+              <OverviewTab
+                album={album}
+                shareLink={shareLink}
+                onStatusChange={handleStatusChange}
+              />
             </TabsContent>
             <TabsContent value="gallery" className="mt-lg">
               <GalleryTab album={album} onSynced={reloadAlbum} />
@@ -196,9 +212,11 @@ function ShareDialog({ shareLink }: { shareLink: string }) {
 function OverviewTab({
   album,
   shareLink,
+  onStatusChange,
 }: {
   album: AlbumDetail;
   shareLink: string;
+  onStatusChange: (status: string) => void;
 }) {
   return (
     <>
@@ -233,9 +251,7 @@ function OverviewTab({
               </div>
               <div className="flex justify-between">
                 <span className="text-secondary">Trạng thái</span>
-                <Badge variant={albumStatusBadge[album.status] ?? "secondary"}>
-                  {albumStatusLabel[album.status] ?? album.status}
-                </Badge>
+                <StatusMenu status={album.status} onChange={onStatusChange} />
               </div>
               <div className="flex justify-between">
                 <span className="text-secondary">Hết hạn</span>
@@ -354,7 +370,38 @@ function GalleryTab({
   const [fsSupported, setFsSupported] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
+  const [driveOpen, setDriveOpen] = useState(false);
+  const [driveLink, setDriveLink] = useState("");
+  const [driveImporting, setDriveImporting] = useState(false);
   useEffect(() => setFsSupported(isFileSystemAccessSupported()), []);
+
+  async function handleDriveImport() {
+    if (!driveLink.trim()) {
+      toast("Dán link folder Google Drive vào đây");
+      return;
+    }
+    setDriveImporting(true);
+    try {
+      const res = await fetch(`/api/albums/${album.id}/photos/drive-import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ driveLink }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message ?? "Nhập từ Drive thất bại");
+      toast(
+        `Đã nhập ${data.added} ảnh mới từ Google Drive${data.skipped ? `, bỏ qua ${data.skipped} ảnh đã có` : ""}.`
+      );
+      setDriveOpen(false);
+      setDriveLink("");
+      onSynced();
+    } catch (e) {
+      toast(String(e instanceof Error ? e.message : e));
+    } finally {
+      setDriveImporting(false);
+    }
+  }
 
   async function handleSync() {
     if (!fsSupported) {
@@ -438,6 +485,37 @@ function GalleryTab({
           <RefreshCw size={14} className={syncing ? "animate-spin" : undefined} />
           {syncing ? syncProgress || "Đang đồng bộ..." : "Đồng bộ ảnh"}
         </Button>
+        <Dialog open={driveOpen} onOpenChange={setDriveOpen}>
+          <DialogTrigger asChild>
+            <Button variant="secondary" size="sm">
+              <HardDrive size={14} />
+              Nhập từ Google Drive
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nhập ảnh từ Google Drive</DialogTitle>
+            </DialogHeader>
+            <div className="field mb-md">
+              <label>Link folder Google Drive</label>
+              <input
+                className="input"
+                placeholder="https://drive.google.com/drive/folders/..."
+                value={driveLink}
+                onChange={(e) => setDriveLink(e.target.value)}
+              />
+              <p className="text-xs text-secondary mt-xs">
+                Folder cần để chế độ chia sẻ &quot;Anyone with the link&quot; (Bất kỳ ai có link) —
+                người xem có thể xem.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleDriveImport} disabled={driveImporting}>
+                {driveImporting ? "Đang nhập..." : "Nhập ảnh"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
       {album.photos.length === 0 ? (
         <div className="empty-state">

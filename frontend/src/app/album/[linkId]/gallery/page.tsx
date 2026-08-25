@@ -86,6 +86,7 @@ export default function GalleryPage({
   const lastWheelTimeRef = useRef(0);
   const touchStartXRef = useRef<number | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const prevViewRef = useRef<ViewMode>("masonry");
   const [lightboxId, setLightboxId] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
@@ -341,6 +342,17 @@ export default function GalleryPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lightboxId, sortedPhotos, view]);
 
+  // Lightbox is a fullscreen image viewer — lock page scroll behind it,
+  // same as the 3D Carousel overlay.
+  useEffect(() => {
+    if (!lightboxId) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [lightboxId]);
+
   function handleFolderPhotoClick(e: React.MouseEvent, index: number, id: string) {
     if (e.shiftKey && folderLastClickedIndex !== null) {
       const [start, end] =
@@ -488,7 +500,7 @@ export default function GalleryPage({
       if (Math.abs(delta) < 12) return;
       e.preventDefault();
       const now = Date.now();
-      if (now - lastWheelTimeRef.current < 300) return;
+      if (now - lastWheelTimeRef.current < 240) return;
       lastWheelTimeRef.current = now;
       carouselStep(delta > 0 ? 1 : -1);
     }
@@ -496,6 +508,28 @@ export default function GalleryPage({
     return () => el.removeEventListener("wheel", onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, carouselPhotos.length]);
+
+  function closeCarousel() {
+    setView(prevViewRef.current);
+  }
+
+  // 3D Carousel takes over the whole screen while active — Esc closes it
+  // back to whichever view was showing before, and the page behind can't
+  // scroll while it's up (nothing to leak the wheel to).
+  useEffect(() => {
+    if (view !== "carousel") return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") closeCarousel();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   if (!album) return null;
 
@@ -700,7 +734,10 @@ export default function GalleryPage({
             className={`gh-view-btn${view === "carousel" ? " active" : ""}`}
             title="3D Carousel"
             type="button"
-            onClick={() => setView("carousel")}
+            onClick={() => {
+              if (view !== "carousel") prevViewRef.current = view;
+              setView("carousel");
+            }}
           >
             <RefreshCw size={16} />
           </button>
@@ -744,10 +781,21 @@ export default function GalleryPage({
         </div>
       </div>
 
-      {/* 3D Carousel — geometry per docs/3d-carousel reference spec */}
+      {/* 3D Carousel — geometry per docs/3d-carousel reference spec.
+          Takes over the whole screen while active (fixed overlay) so the
+          wheel-lock covers the entire visible frame with nothing behind it
+          to leak a scroll to — X button or Esc returns to the prior view. */}
       {view === "carousel" && (
+        <div ref={carouselRef} className="gh-carousel-overlay">
+        <button
+          type="button"
+          className="gh-carousel-overlay-close"
+          aria-label="Đóng 3D Carousel"
+          onClick={closeCarousel}
+        >
+          <X size={20} />
+        </button>
         <div
-          ref={carouselRef}
           className="gh-carousel active"
           onTouchStart={handleCarouselTouchStart}
           onTouchEnd={handleCarouselTouchEnd}
@@ -837,12 +885,11 @@ export default function GalleryPage({
             ›
           </button>
         </div>
-      )}
 
-      {/* Active-photo actions — a fixed row below the carousel (not an
-          overlay on the card itself) so Like/Star/Comment stay reachable
-          regardless of how tall the centered card is or how far scrolled. */}
-      {view === "carousel" && carouselPhotos[carouselIndex] && (
+        {/* Active-photo actions — a fixed row below the carousel (not an
+            overlay on the card itself) so Like/Star/Comment stay reachable
+            regardless of how tall the centered card is or how far scrolled. */}
+        {carouselPhotos[carouselIndex] && (
         <div
           style={{
             display: "flex",
@@ -863,7 +910,7 @@ export default function GalleryPage({
               className={`pill-btn js-like${carouselPhotos[carouselIndex].liked ? " liked" : ""}`}
               onClick={() => toggleLike(carouselPhotos[carouselIndex].id)}
             >
-              <Heart size={22} />
+              <Heart size={22} fill={carouselPhotos[carouselIndex].liked ? "currentColor" : "none"} />
             </button>
             Thích
           </div>
@@ -890,6 +937,8 @@ export default function GalleryPage({
             </button>
             Bình luận
           </div>
+        </div>
+        )}
         </div>
       )}
 
@@ -960,7 +1009,7 @@ export default function GalleryPage({
                       toggleLike(photo.id);
                     }}
                   >
-                    <Heart size={18} />
+                    <Heart size={18} fill={photo.liked ? "currentColor" : "none"} />
                   </button>
                   {canStar && (
                     <button
@@ -1216,8 +1265,11 @@ export default function GalleryPage({
           </button>
 
           <div className="lb-img-wrap">
+            {/* previewUrl first — same URL the grid tile already loaded, so
+                the browser serves it from cache and the lightbox opens
+                instantly instead of fetching the full-res original. */}
             <Image
-              src={lightboxPhoto.originalUrl ?? lightboxPhoto.previewUrl ?? picsum(lightboxPhoto.id, 1200, 1200)}
+              src={lightboxPhoto.previewUrl ?? lightboxPhoto.originalUrl ?? picsum(lightboxPhoto.id, 1200, 1200)}
               alt=""
               width={1000}
               height={1000}
@@ -1235,7 +1287,7 @@ export default function GalleryPage({
                 className={`pill-btn js-like${lightboxPhoto.liked ? " liked" : ""}`}
                 onClick={() => toggleLike(lightboxPhoto.id)}
               >
-                <Heart size={22} />
+                <Heart size={22} fill={lightboxPhoto.liked ? "currentColor" : "none"} />
               </button>
               Thích
             </div>

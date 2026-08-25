@@ -33,6 +33,12 @@ export async function POST(
   if (!album) {
     return NextResponse.json({ error: { message: "Không tìm thấy album" } }, { status: 404 });
   }
+  if (album.status === "closed") {
+    return NextResponse.json(
+      { error: { message: "Album này đã đóng, không thể xem." } },
+      { status: 403 }
+    );
+  }
 
   const existingGuest = await getGuestCustomer(params.linkToken);
   if (existingGuest) {

@@ -17,16 +17,29 @@ export default function AlbumLandingPage({
 }) {
   const [album, setAlbum] = useState<PublicAlbumInfo | null>(null);
   const [notFoundState, setNotFoundState] = useState(false);
+  const [closedMessage, setClosedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     api<PublicAlbumInfo>(`/api/public/album/${params.linkId}`)
       .then(setAlbum)
       .catch((err) => {
         if (err instanceof ApiError && err.status === 404) setNotFoundState(true);
+        else if (err instanceof ApiError && err.status === 403) setClosedMessage(err.message);
       });
   }, [params.linkId]);
 
   if (notFoundState) notFound();
+  if (closedMessage) {
+    return (
+      <>
+        <AppHeader studioName="Books View" />
+        <div className="empty-state" style={{ minHeight: "60vh" }}>
+          <h3>Album đã đóng</h3>
+          <p className="text-secondary">{closedMessage}</p>
+        </div>
+      </>
+    );
+  }
   if (!album) return null;
 
   return (
