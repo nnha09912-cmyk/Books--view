@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getCurrentStudio } from "@/lib/auth";
+import { getCurrentStudio, hashPassword, verifyPassword } from "@/lib/auth";
 
 export async function GET() {
   const studio = await getCurrentStudio();
@@ -24,6 +24,8 @@ const patchSchema = z.object({
   name: z.string().min(1).optional(),
   phone: z.string().optional(),
   description: z.string().optional(),
+  currentPassword: z.string().min(1).optional(),
+  newPassword: z.string().min(8).optional(),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -38,9 +40,30 @@ export async function PATCH(req: NextRequest) {
       { status: 400 }
     );
   }
+  const { currentPassword, newPassword, ...rest } = parsed.data;
+
+  if (newPassword) {
+    if (!currentPassword) {
+      return NextResponse.json(
+        { error: { message: "Vui lòng nhập mật khẩu hiện tại" } },
+        { status: 400 }
+      );
+    }
+    const valid = await verifyPassword(currentPassword, current.passwordHash);
+    if (!valid) {
+      return NextResponse.json(
+        { error: { message: "Mật khẩu hiện tại không đúng" } },
+        { status: 401 }
+      );
+    }
+  }
+
   const studio = await prisma.studio.update({
     where: { id: current.id },
-    data: parsed.data,
+    data: {
+      ...rest,
+      ...(newPassword ? { passwordHash: await hashPassword(newPassword) } : {}),
+    },
   });
   return NextResponse.json({
     studio: {

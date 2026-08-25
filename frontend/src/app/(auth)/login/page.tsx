@@ -22,7 +22,7 @@ export default function LoginPage() {
       await api("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({
-          email: form.get("email"),
+          identifier: form.get("identifier"),
           password: form.get("password"),
         }),
       });
@@ -39,7 +39,7 @@ export default function LoginPage() {
     <AuthShell
       imageSeed="booksview-wedding"
       quoteTitle="“Khách xem và chọn ảnh chỉ trong 10 phút, không cần cài app.”"
-      quoteMeta="— Studio Lumière, 2.400 ảnh cưới đã bàn giao qua Books View"
+      quoteMeta="♥ Một quà tặng từ Trần Nhất Duy - Phóng Sự Cưới Gò Công"
     >
       <div className="brand">
         <BrandMark />
@@ -56,13 +56,13 @@ export default function LoginPage() {
         style={{ display: "flex", flexDirection: "column", gap: 16 }}
       >
         <div className="field">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="identifier">Email hoặc Số điện thoại</label>
           <input
             className="input"
-            type="email"
-            id="email"
-            name="email"
-            placeholder="ban@studio.com"
+            type="text"
+            id="identifier"
+            name="identifier"
+            placeholder="ban@studio.com hoặc 09xx xxx xxx"
             defaultValue="quyen@booksview.vn"
             required
           />

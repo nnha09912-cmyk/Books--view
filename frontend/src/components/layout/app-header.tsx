@@ -32,14 +32,16 @@ export function AppHeader({
           </button>
         )}
         {showAvatar && (
-          <Image
-            className="avatar"
-            src={pravatar(12, 72)}
-            alt=""
-            width={36}
-            height={36}
-            unoptimized
-          />
+          <Link href="/settings" title="Hồ sơ & cài đặt">
+            <Image
+              className="avatar"
+              src={pravatar(12, 72)}
+              alt=""
+              width={36}
+              height={36}
+              unoptimized
+            />
+          </Link>
         )}
       </div>
     </header>

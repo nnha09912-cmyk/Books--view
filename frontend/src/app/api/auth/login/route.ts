@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { verifyPassword, signSession, SESSION_COOKIE } from "@/lib/auth";
 
 const bodySchema = z.object({
-  email: z.string().email(),
+  identifier: z.string().min(1),
   password: z.string().min(1),
 });
 
@@ -16,12 +16,14 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { email, password } = parsed.data;
+  const { identifier, password } = parsed.data;
 
-  const studio = await prisma.studio.findUnique({ where: { email } });
+  const studio = await prisma.studio.findFirst({
+    where: { OR: [{ email: identifier }, { phone: identifier }] },
+  });
   if (!studio || !(await verifyPassword(password, studio.passwordHash))) {
     return NextResponse.json(
-      { error: { message: "Email hoặc mật khẩu không đúng" } },
+      { error: { message: "Email/SĐT hoặc mật khẩu không đúng" } },
       { status: 401 }
     );
   }

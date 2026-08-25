@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { LogOut } from "lucide-react";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,11 +15,18 @@ import { useStudio } from "@/lib/use-studio";
 import { api, ApiError } from "@/lib/api-client";
 
 function ProfileTab() {
+  const router = useRouter();
   const { studio, loading } = useStudio();
   const [phone, setPhone] = useState("");
   const [description, setDescription] = useState("");
   const [studioName, setStudioName] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     if (!studio) return;
@@ -41,6 +50,39 @@ function ProfileTab() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleChangePassword() {
+    if (newPassword.length < 8) {
+      toast("Mật khẩu mới phải có ít nhất 8 ký tự");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast("Xác nhận mật khẩu mới không khớp");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await api("/api/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      toast("Đã đổi mật khẩu");
+      setChangingPassword(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không thể đổi mật khẩu");
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  async function handleLogout() {
+    await api("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
   }
 
   return (
@@ -108,8 +150,79 @@ function ProfileTab() {
           </div>
           <Switch disabled />
         </div>
-        <Button variant="ghost" style={{ alignSelf: "flex-start" }} disabled>
-          Đổi mật khẩu
+        {!changingPassword ? (
+          <Button
+            variant="ghost"
+            style={{ alignSelf: "flex-start" }}
+            onClick={() => setChangingPassword(true)}
+          >
+            Đổi mật khẩu
+          </Button>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className="field">
+              <label>Mật khẩu hiện tại</label>
+              <input
+                className="input"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+            <div className="field">
+              <label>Mật khẩu mới</label>
+              <input
+                className="input"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Tối thiểu 8 ký tự"
+                minLength={8}
+              />
+            </div>
+            <div className="field">
+              <label>Xác nhận mật khẩu mới</label>
+              <input
+                className="input"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Nhập lại mật khẩu mới"
+              />
+            </div>
+            <div className="flex gap-sm">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setChangingPassword(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                }}
+              >
+                Huỷ
+              </Button>
+              <Button onClick={handleChangePassword} disabled={savingPassword}>
+                {savingPassword ? "Đang đổi..." : "Xác nhận đổi mật khẩu"}
+              </Button>
+            </div>
+          </div>
+        )}
+        <hr
+          style={{
+            border: "none",
+            borderTop: "1px solid var(--border)",
+            margin: "4px 0",
+          }}
+        />
+        <Button
+          variant="ghost"
+          style={{ alignSelf: "flex-start", color: "var(--destructive)" }}
+          onClick={handleLogout}
+        >
+          <LogOut size={16} />
+          Đăng xuất
         </Button>
         <div className="modal-foot">
           <Button onClick={handleSave} disabled={saving}>
