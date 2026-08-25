@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -13,6 +13,12 @@ import { api, ApiError } from "@/lib/api-client";
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("oauthError")) {
+      toast("Đăng nhập bằng Google thất bại, thử lại nhé");
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -91,14 +97,10 @@ export default function LoginPage() {
 
       <div className="divider-or">hoặc</div>
       <div className="oauth-row">
-        <button
-          type="button"
-          className="oauth-btn"
-          onClick={() => toast("Demo OAuth Google")}
-        >
+        <a href="/api/auth/google" className="oauth-btn">
           <GoogleIcon />
           Google
-        </button>
+        </a>
         <button
           type="button"
           className="oauth-btn"
