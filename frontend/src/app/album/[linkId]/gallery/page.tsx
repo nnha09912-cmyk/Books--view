@@ -24,6 +24,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -699,18 +701,40 @@ export default function GalleryPage({
             style={{ color: "rgba(255,255,255,.7)" }}
             title="Cỡ ảnh"
           >
-            <Grid2x2 size={14} />
+            <button
+              type="button"
+              className="gh-view-btn"
+              onClick={() =>
+                setGridSize(Math.min(6, (gridSize ?? (view === "masonry" ? 4 : 5)) + 1))
+              }
+              title="Thu nhỏ ảnh"
+              aria-label="Thu nhỏ ảnh"
+            >
+              <ZoomOut size={14} />
+            </button>
+            <Grid3x3 size={12} />
             <input
               type="range"
               min={2}
               max={6}
               step={1}
-              value={gridSize ?? (view === "masonry" ? 4 : 5)}
-              onChange={(e) => setGridSize(Number(e.target.value))}
+              value={8 - (gridSize ?? (view === "masonry" ? 4 : 5))}
+              onChange={(e) => setGridSize(8 - Number(e.target.value))}
               style={{ width: 90 }}
-              aria-label="Cỡ ảnh — kéo để phóng to/thu nhỏ"
+              aria-label="Cỡ ảnh — kéo sang phải để phóng to"
             />
-            <Grid3x3 size={12} />
+            <Grid2x2 size={14} />
+            <button
+              type="button"
+              className="gh-view-btn"
+              onClick={() =>
+                setGridSize(Math.max(2, (gridSize ?? (view === "masonry" ? 4 : 5)) - 1))
+              }
+              title="Phóng to ảnh"
+              aria-label="Phóng to ảnh"
+            >
+              <ZoomIn size={14} />
+            </button>
           </div>
         )}
         <div className="gh-view-switch">
@@ -1120,7 +1144,10 @@ export default function GalleryPage({
           className="gh-modal-backdrop open"
           onClick={(e) => e.target === e.currentTarget && setFolderModalOpen(false)}
         >
-          <div className="gh-modal" style={{ maxWidth: 480, textAlign: "left" }}>
+          <div
+            className="gh-modal gh-modal-resizable"
+            style={{ maxWidth: 480, textAlign: "left" }}
+          >
             <h3 style={{ textAlign: "center" }}>Thêm nhóm ảnh</h3>
             <div className="field mt-sm">
               <label style={{ color: "#fff" }}>Tên nhóm</label>
@@ -1160,6 +1187,14 @@ export default function GalleryPage({
               <button
                 className="gh-modal-close"
                 type="button"
+                style={{
+                  flex: 1,
+                  marginTop: 0,
+                  height: 40,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
                 onClick={() => setFolderModalOpen(false)}
               >
                 Hủy

@@ -1635,6 +1635,15 @@
     font-size: 16px;
     color: #fff;
   }
+  /* Lets the user drag the bottom-right corner to enlarge the "Thêm
+     nhóm ảnh" modal — native resize handle, browser draws the grip and
+     swaps in the resize cursor automatically. */
+  .gh-modal-resizable {
+    resize: both;
+    overflow: auto;
+    min-width: 340px;
+    min-height: 260px;
+  }
   .gh-modal-close {
     margin-top: 16px;
     background: transparent;
@@ -1645,6 +1654,10 @@
     cursor: pointer;
     font-family: inherit;
     font-size: 13px;
+    transition: background 0.15s var(--ease);
+  }
+  .gh-modal-close:hover {
+    background: rgba(255, 255, 255, 0.12);
   }
   .gh-qr-box {
     background: #fff;
