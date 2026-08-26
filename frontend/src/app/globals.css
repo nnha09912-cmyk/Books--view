@@ -1653,7 +1653,7 @@
     padding: 8px 16px;
     cursor: pointer;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 14px;
     transition: background 0.15s var(--ease);
   }
   .gh-modal-close:hover {

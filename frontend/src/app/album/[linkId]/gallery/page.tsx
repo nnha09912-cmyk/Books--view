@@ -1146,7 +1146,14 @@ export default function GalleryPage({
         >
           <div
             className="gh-modal gh-modal-resizable"
-            style={{ maxWidth: 480, textAlign: "left" }}
+            style={{
+              width: "70vw",
+              maxWidth: "70vw",
+              height: "70vh",
+              textAlign: "left",
+              display: "flex",
+              flexDirection: "column",
+            }}
           >
             <h3 style={{ textAlign: "center" }}>Thêm nhóm ảnh</h3>
             <div className="field mt-sm">
@@ -1163,7 +1170,7 @@ export default function GalleryPage({
               Chọn ảnh cho nhóm này — Click chọn 1 · Shift+Click chọn khoảng đầu-cuối ·
               Cmd/Ctrl+Click chọn rời từng ảnh. Đã chọn: {folderSelectedIds.size}
             </p>
-            <div className="gh-cover-picker" style={{ maxHeight: 320 }}>
+            <div className="gh-cover-picker" style={{ flex: 1, maxHeight: "none", overflow: "auto" }}>
               {sortedPhotos.map((photo, i) => (
                 <div
                   key={photo.id}
@@ -1181,7 +1188,16 @@ export default function GalleryPage({
               ))}
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-              <Button onClick={saveFolder} style={{ flex: 1 }}>
+              <Button
+                onClick={saveFolder}
+                style={{
+                  flex: 1,
+                  marginTop: 0,
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,.3)",
+                  color: "#fff",
+                }}
+              >
                 Tạo nhóm
               </Button>
               <button

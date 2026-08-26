@@ -578,6 +578,30 @@ function GalleryTab({
     }
   }
 
+  const [optimizing, setOptimizing] = useState(false);
+
+  async function handleOptimize() {
+    setOptimizing(true);
+    try {
+      const res = await fetch(`/api/albums/${album.id}/photos/optimize`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message ?? "Tối ưu ảnh thất bại");
+      toast(
+        data.optimized > 0
+          ? `Đã tối ưu lại ${data.optimized} ảnh cũ.`
+          : "Không có ảnh nào cần tối ưu."
+      );
+      if (data.optimized > 0) onSynced();
+    } catch (e) {
+      toast(String(e instanceof Error ? e.message : e));
+    } finally {
+      setOptimizing(false);
+    }
+  }
+
   async function handleSync() {
     if (!fsSupported) {
       toast("Trình duyệt này chưa hỗ trợ chọn thư mục — hãy dùng Chrome hoặc Edge.");
@@ -675,6 +699,15 @@ function GalleryTab({
               disabled={album.photos.length < 2}
             >
               Sắp xếp lại
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleOptimize}
+              disabled={optimizing}
+              title="Tạo lại ảnh xem trước cho các ảnh cũ chưa được tối ưu — sửa lỗi vỡ/sọc hình khi ảnh gốc quá lớn"
+            >
+              {optimizing ? "Đang tối ưu..." : "Tối ưu ảnh"}
             </Button>
             <Button
               size="sm"
