@@ -496,18 +496,27 @@
   .photo-tile {
     position: relative;
     aspect-ratio: 1 / 1;
+    border: none;
     border-radius: var(--radius-sm);
     overflow: hidden;
     background: var(--muted);
     cursor: zoom-in;
+    transition:
+      transform 0.3s var(--ease),
+      box-shadow 0.3s var(--ease);
   }
   .photo-tile img {
     width: 100%;
     height: 100%;
+    border: none;
     object-fit: cover;
     transition:
       transform 0.3s var(--ease),
       filter 0.3s var(--ease);
+  }
+  .photo-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
   }
   .photo-tile:hover img {
     transform: scale(1.05);
@@ -1179,10 +1188,9 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(6px);
+    background: transparent;
     color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.6);
     border-radius: 10px;
     padding: 10px 16px;
     font-size: 13px;
@@ -1191,7 +1199,7 @@
     white-space: nowrap;
   }
   .gh-change-cover:hover {
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(255, 255, 255, 0.15);
   }
   @media (max-width: 640px) {
     .gh-cover {
@@ -1545,6 +1553,7 @@
     border-radius: 12px;
     overflow: hidden;
     cursor: pointer;
+    background: #000;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     transition:
       transform 0.29s cubic-bezier(0.22, 0.61, 0.36, 1),
@@ -1554,7 +1563,10 @@
   .gh-carousel-item img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    /* contain, not cover — portrait/square photos still fill the frame
+       edge-to-edge, but landscape photos letterbox instead of being
+       cropped to fit the portrait card. */
+    object-fit: contain;
     display: block;
   }
   .gh-carousel-nav {

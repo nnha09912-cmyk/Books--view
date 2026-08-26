@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -33,7 +33,7 @@ import { picsum } from "@/lib/mock-data";
 import { useStudio } from "@/lib/use-studio";
 import { api, ApiError } from "@/lib/api-client";
 import { isFileSystemAccessSupported, buildSourceIndex } from "@/lib/fs-filter";
-import type { AlbumDetail } from "@/lib/types";
+import type { AlbumDetail, AlbumPhoto } from "@/lib/types";
 
 export default function AlbumDetailPage({
   params,
@@ -125,7 +125,7 @@ export default function AlbumDetailPage({
             <div className="flex gap-sm">
               <ShareDialog albumName={album.name} linkToken={album.linkToken} />
               <Button asChild>
-                <Link href={`/album/${album.linkToken}`}>Xem như khách</Link>
+                <Link href={`/album/${album.linkToken}/gallery`}>Xem như khách</Link>
               </Button>
             </div>
           </div>
@@ -436,6 +436,96 @@ function GalleryTab({
   const [driveImporting, setDriveImporting] = useState(false);
   useEffect(() => setFsSupported(isFileSystemAccessSupported()), []);
 
+  const [reordering, setReordering] = useState(false);
+  const [orderedPhotos, setOrderedPhotos] = useState<AlbumPhoto[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const lastClickedIndexRef = useRef<number | null>(null);
+  const draggedIdsRef = useRef<Set<string>>(new Set());
+
+  function enterReorderMode() {
+    setOrderedPhotos([...album.photos]);
+    setSelectedIds(new Set());
+    lastClickedIndexRef.current = null;
+    setReordering(true);
+  }
+
+  function cancelReorder() {
+    setReordering(false);
+    setSelectedIds(new Set());
+    setDragOverIndex(null);
+  }
+
+  async function saveReorder() {
+    setSavingOrder(true);
+    try {
+      const res = await fetch(`/api/albums/${album.id}/photos/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ photoIds: orderedPhotos.map((p) => p.id) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message ?? "Lưu thứ tự thất bại");
+      toast("Đã lưu thứ tự ảnh");
+      setReordering(false);
+      setSelectedIds(new Set());
+      onSynced();
+    } catch (e) {
+      toast(String(e instanceof Error ? e.message : e));
+    } finally {
+      setSavingOrder(false);
+    }
+  }
+
+  function handleTileClick(e: React.MouseEvent, photo: AlbumPhoto, index: number) {
+    if (!reordering) return;
+    if (e.shiftKey && lastClickedIndexRef.current !== null) {
+      const [from, to] = [lastClickedIndexRef.current, index].sort((a, b) => a - b);
+      const range = orderedPhotos.slice(from, to + 1).map((p) => p.id);
+      setSelectedIds(new Set(range));
+    } else if (e.metaKey || e.ctrlKey) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(photo.id)) next.delete(photo.id);
+        else next.add(photo.id);
+        return next;
+      });
+      lastClickedIndexRef.current = index;
+    } else {
+      setSelectedIds(new Set([photo.id]));
+      lastClickedIndexRef.current = index;
+    }
+  }
+
+  function handleDragStart(e: React.DragEvent, photo: AlbumPhoto) {
+    const dragged = selectedIds.has(photo.id) ? selectedIds : new Set([photo.id]);
+    if (!selectedIds.has(photo.id)) setSelectedIds(dragged);
+    draggedIdsRef.current = dragged;
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }
+
+  function handleDrop(e: React.DragEvent, targetIndex: number) {
+    e.preventDefault();
+    const dragged = draggedIdsRef.current;
+    setOrderedPhotos((prev) => {
+      const before = prev.slice(0, targetIndex).filter((p) => dragged.has(p.id)).length;
+      const insertAt = targetIndex - before;
+      const rest = prev.filter((p) => !dragged.has(p.id));
+      const movedInOrder = prev.filter((p) => dragged.has(p.id));
+      const next = [...rest];
+      next.splice(insertAt, 0, ...movedInOrder);
+      return next;
+    });
+    setDragOverIndex(null);
+  }
+
   async function handleDriveImport() {
     if (!driveLink.trim()) {
       toast("Dán link folder Google Drive vào đây");
@@ -559,52 +649,74 @@ function GalleryTab({
         </div>
       )}
       <div className="toolbar">
-        <span className="text-sm">
-          {album.photos.length} ảnh · badge hiển thị ảnh đã được khách chọn
-        </span>
-        <div className="spacer" />
-        <Button variant="secondary" size="sm" disabled>
-          Sắp xếp lại
-        </Button>
-        <Button
-          size="sm"
-          onClick={album.googleDriveFolderId ? handleDriveSync : handleSync}
-          disabled={syncing || (!album.googleDriveFolderId && !fsSupported)}
-        >
-          <RefreshCw size={14} className={syncing ? "animate-spin" : undefined} />
-          {syncing ? syncProgress || "Đang đồng bộ..." : "Đồng bộ ảnh"}
-        </Button>
-        <Dialog open={driveOpen} onOpenChange={setDriveOpen}>
-          <DialogTrigger asChild>
-            <Button variant="secondary" size="sm">
-              <HardDrive size={14} />
-              Nhập từ Google Drive
+        {reordering ? (
+          <>
+            <span className="text-sm">
+              Kéo thả để sắp xếp — giữ Cmd/Ctrl hoặc Shift để chọn nhiều ảnh cùng lúc.
+            </span>
+            <div className="spacer" />
+            <Button variant="secondary" size="sm" onClick={cancelReorder} disabled={savingOrder}>
+              Huỷ
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nhập ảnh từ Google Drive</DialogTitle>
-            </DialogHeader>
-            <div className="field mb-md">
-              <label>Link folder Google Drive</label>
-              <input
-                className="input"
-                placeholder="https://drive.google.com/drive/folders/..."
-                value={driveLink}
-                onChange={(e) => setDriveLink(e.target.value)}
-              />
-              <p className="text-xs text-secondary mt-xs">
-                Folder cần để chế độ chia sẻ &quot;Anyone with the link&quot; (Bất kỳ ai có link) —
-                người xem có thể xem.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleDriveImport} disabled={driveImporting}>
-                {driveImporting ? "Đang nhập..." : "Nhập ảnh"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            <Button size="sm" onClick={saveReorder} disabled={savingOrder}>
+              {savingOrder ? "Đang lưu..." : "Xong"}
+            </Button>
+          </>
+        ) : (
+          <>
+            <span className="text-sm">
+              {album.photos.length} ảnh · badge hiển thị ảnh đã được khách chọn
+            </span>
+            <div className="spacer" />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={enterReorderMode}
+              disabled={album.photos.length < 2}
+            >
+              Sắp xếp lại
+            </Button>
+            <Button
+              size="sm"
+              onClick={album.googleDriveFolderId ? handleDriveSync : handleSync}
+              disabled={syncing || (!album.googleDriveFolderId && !fsSupported)}
+            >
+              <RefreshCw size={14} className={syncing ? "animate-spin" : undefined} />
+              {syncing ? syncProgress || "Đang đồng bộ..." : "Đồng bộ ảnh"}
+            </Button>
+            <Dialog open={driveOpen} onOpenChange={setDriveOpen}>
+              <DialogTrigger asChild>
+                <Button variant="secondary" size="sm">
+                  <HardDrive size={14} />
+                  Nhập từ Google Drive
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Nhập ảnh từ Google Drive</DialogTitle>
+                </DialogHeader>
+                <div className="field mb-md">
+                  <label>Link folder Google Drive</label>
+                  <input
+                    className="input"
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    value={driveLink}
+                    onChange={(e) => setDriveLink(e.target.value)}
+                  />
+                  <p className="text-xs text-secondary mt-xs">
+                    Folder cần để chế độ chia sẻ &quot;Anyone with the link&quot; (Bất kỳ ai có link) —
+                    người xem có thể xem.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleDriveImport} disabled={driveImporting}>
+                    {driveImporting ? "Đang nhập..." : "Nhập ảnh"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
       </div>
       {album.photos.length === 0 ? (
         <div className="empty-state">
@@ -619,14 +731,27 @@ function GalleryTab({
             gap: 8,
           }}
         >
-          {album.photos.map((photo) => (
+          {(reordering ? orderedPhotos : album.photos).map((photo, index) => (
             <div
               key={photo.id}
+              draggable={reordering}
+              onClick={(e) => handleTileClick(e, photo, index)}
+              onDragStart={(e) => handleDragStart(e, photo)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={(e) => handleDrop(e, index)}
               style={{
                 aspectRatio: "1/1",
                 borderRadius: 6,
                 overflow: "hidden",
                 position: "relative",
+                cursor: reordering ? "grab" : undefined,
+                outline: selectedIds.has(photo.id)
+                  ? "3px solid var(--accent)"
+                  : dragOverIndex === index
+                    ? "3px dashed var(--accent)"
+                    : "none",
+                outlineOffset: -3,
+                opacity: reordering && draggedIdsRef.current.has(photo.id) && dragOverIndex !== null ? 0.5 : 1,
               }}
             >
               <Image

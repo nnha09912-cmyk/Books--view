@@ -968,11 +968,7 @@ export default function GalleryPage({
                 onClick={() => openLightbox(photo.id)}
               >
                 <Image
-                  src={
-                    view === "masonry"
-                      ? picsum(photo.id, width, height)
-                      : (photo.previewUrl ?? picsum(photo.id, width, height))
-                  }
+                  src={photo.previewUrl ?? picsum(photo.id, width, height)}
                   alt=""
                   width={width}
                   height={height}

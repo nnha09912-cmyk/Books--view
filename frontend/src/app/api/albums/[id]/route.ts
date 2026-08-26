@@ -52,6 +52,7 @@ export async function GET(
       previewUrl: p.previewUrl,
       likeCount: p.likeCount,
       starCount: p.starCount,
+      orderIndex: p.orderIndex,
     })),
     customers: album.customers.map((c) => ({
       id: c.id,

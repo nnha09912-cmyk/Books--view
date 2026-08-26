@@ -21,6 +21,7 @@ export interface AlbumPhoto {
   starCount: number;
   liked?: boolean;
   starred?: boolean;
+  orderIndex: number | null;
 }
 
 export interface AlbumCustomer {
