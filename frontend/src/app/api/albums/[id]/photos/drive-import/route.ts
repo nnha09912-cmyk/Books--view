@@ -7,6 +7,7 @@ import {
   listDriveImages,
   driveThumbnailUrl,
   driveDownloadUrl,
+  sanitizeDriveFilename,
 } from "@/lib/google-drive";
 
 const UUID_RE =
@@ -15,10 +16,6 @@ const UUID_RE =
 const bodySchema = z.object({
   driveLink: z.string().min(1),
 });
-
-function sanitizeFilename(name: string) {
-  return name.replace(/[\\/:*?"<>|]/g, "_").replace(/^\.+/, "");
-}
 
 /** Imports images from a publicly-shared ("Anyone with the link") Google
  * Drive folder — same instant-import approach as photo.maclife.vn: this
@@ -83,7 +80,7 @@ export async function POST(
   const errors: string[] = [];
 
   for (const file of driveFiles) {
-    const filename = sanitizeFilename(file.name);
+    const filename = sanitizeDriveFilename(file.name);
     if (!filename) continue;
     if (existingNames.has(filename)) {
       skipped++;
@@ -102,6 +99,7 @@ export async function POST(
           previewUrl,
           fileSize: file.size ? Number(file.size) : null,
           mimeType: file.mimeType || null,
+          googleDriveId: file.id,
         },
       });
       existingNames.add(filename);
@@ -111,10 +109,11 @@ export async function POST(
     }
   }
 
-  if (added > 0) {
-    const photoCount = await prisma.photo.count({ where: { albumId: album.id } });
-    await prisma.album.update({ where: { id: album.id }, data: { photoCount } });
-  }
+  const photoCount = await prisma.photo.count({ where: { albumId: album.id } });
+  await prisma.album.update({
+    where: { id: album.id },
+    data: { photoCount, googleDriveFolderId: folderId },
+  });
 
   return NextResponse.json({ added, skipped, errors });
 }

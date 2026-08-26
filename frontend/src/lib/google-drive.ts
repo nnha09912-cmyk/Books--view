@@ -12,6 +12,19 @@ export interface DriveImageFile {
   thumbnailLink: string | null;
 }
 
+/** Reserved so Album.name can be auto-filled from the actual Drive folder
+ * name when a studio leaves the album name blank. */
+export async function getDriveFolderName(folderId: string): Promise<string | null> {
+  const key = requireApiKey();
+  const url = new URL(`${DRIVE_API}/files/${folderId}`);
+  url.searchParams.set("fields", "name");
+  url.searchParams.set("key", key);
+  const res = await fetch(url.toString());
+  if (!res.ok) return null;
+  const data = await res.json();
+  return typeof data.name === "string" ? data.name : null;
+}
+
 /** Google appends its own small default size (usually =s220) to
  * thumbnailLink — bump it up so the "thumbnail" is actually large enough
  * to fill the gallery grid/lightbox, still far lighter than the original. */
@@ -34,6 +47,13 @@ export function extractDriveFolderId(input: string): string | null {
   // Bare ID pasted directly (Drive IDs are alphanumeric/-/_ , usually 20+ chars)
   if (/^[a-zA-Z0-9_-]{10,}$/.test(trimmed)) return trimmed;
   return null;
+}
+
+/** Same sanitization drive-import and drive-sync both apply to a Drive
+ * file's name before storing/matching it as Photo.filename — kept in one
+ * place so the two routes can never drift and silently stop matching. */
+export function sanitizeDriveFilename(name: string) {
+  return name.replace(/[\\/:*?"<>|]/g, "_").replace(/^\.+/, "");
 }
 
 function requireApiKey(): string {

@@ -20,27 +20,46 @@ const steps = [
 export default function AlbumCreatePage() {
   const { studio, loading: studioLoading } = useStudio();
   const router = useRouter();
-  const [name, setName] = useState("Đám cưới An & Minh");
+  const [name, setName] = useState("");
   const [description, setDescription] = useState(
     "Cảm ơn anh chị đã tin tưởng Books View. Vui lòng chọn ảnh yêu thích trước ngày 20/09."
   );
   const [driveLink, setDriveLink] = useState("");
+  const [maxSelectionCount, setMaxSelectionCount] = useState("");
   const [creating, setCreating] = useState(false);
   const [creatingLabel, setCreatingLabel] = useState("Đang tạo...");
 
   if (studioLoading || !studio) return null;
 
   async function handleCreate() {
-    if (!name.trim()) {
-      toast("Vui lòng nhập tên album");
-      return;
-    }
     setCreating(true);
     setCreatingLabel("Đang tạo...");
     try {
-      const res = await api<{ id: string }>("/api/albums", {
+      let albumName = name.trim();
+      if (!albumName && driveLink.trim()) {
+        setCreatingLabel("Đang lấy tên từ Drive...");
+        try {
+          const resolved = await api<{ name: string }>(
+            `/api/drive/folder-name?link=${encodeURIComponent(driveLink.trim())}`
+          );
+          albumName = resolved.name;
+        } catch {
+          // Drive lookup failed (bad link, etc.) — fall through to the
+          // default name below and let drive-import surface the real error.
+        }
+      }
+      if (!albumName) {
+        albumName = `Album ${new Date().toLocaleDateString("vi-VN")}`;
+      }
+
+      setCreatingLabel("Đang tạo...");
+      const res = await api<{ id: string; linkToken: string }>("/api/albums", {
         method: "POST",
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({
+          name: albumName,
+          description,
+          maxSelectionCount: maxSelectionCount.trim() || undefined,
+        }),
       });
 
       if (driveLink.trim()) {
@@ -62,7 +81,7 @@ export default function AlbumCreatePage() {
         toast("Đã tạo album");
       }
 
-      router.push(`/albums/${res.id}`);
+      router.push(`/album/${res.linkToken}/gallery`);
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Không thể tạo album");
     } finally {
@@ -184,14 +203,14 @@ export default function AlbumCreatePage() {
 
               <div className="field">
                 <label htmlFor="al-name">
-                  Tên album <span style={{ color: "var(--destructive)" }}>*</span>
+                  Tên album <span className="text-sm">(tuỳ chọn)</span>
                 </label>
                 <input
                   className="input"
                   id="al-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="VD: Đám cưới An & Minh"
+                  placeholder="Để trống sẽ tự lấy tên từ folder Google Drive"
                 />
               </div>
               <div className="field">
@@ -207,14 +226,18 @@ export default function AlbumCreatePage() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="al-client">
-                  Tên khách hàng{" "}
-                  <span className="text-sm">(tuỳ chọn — điền sau)</span>
+                <label htmlFor="al-max">
+                  Số ảnh tối đa được chọn{" "}
+                  <span className="text-sm">(tuỳ chọn)</span>
                 </label>
                 <input
                   className="input"
-                  id="al-client"
-                  placeholder="VD: Anh An & Chị Minh"
+                  id="al-max"
+                  type="number"
+                  min={1}
+                  value={maxSelectionCount}
+                  onChange={(e) => setMaxSelectionCount(e.target.value)}
+                  placeholder="Bỏ trống nếu không giới hạn"
                 />
               </div>
 

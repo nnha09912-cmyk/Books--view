@@ -56,6 +56,8 @@ export interface AlbumDetail {
   expiryDate: string | null;
   passwordProtected: boolean;
   createdAt: string;
+  googleDriveFolderId: string | null;
+  maxSelectionCount: number | null;
   photos: AlbumPhoto[];
   customers: AlbumCustomer[];
 }

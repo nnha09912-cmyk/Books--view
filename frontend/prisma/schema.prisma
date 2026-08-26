@@ -46,6 +46,7 @@ model Album {
   expiryDate          DateTime?
   photoCount          Int       @default(0)
   googleDriveFolderId String?
+  maxSelectionCount   Int?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 

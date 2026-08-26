@@ -43,6 +43,8 @@ export async function GET(
     expiryDate: album.expiryDate,
     passwordProtected: !!album.passwordHash,
     createdAt: album.createdAt,
+    googleDriveFolderId: album.googleDriveFolderId,
+    maxSelectionCount: album.maxSelectionCount,
     photos: album.photos.map((p) => ({
       id: p.id,
       filename: p.filename,
@@ -73,6 +75,7 @@ const patchSchema = z.object({
   template: z.string().optional(),
   status: z.string().optional(),
   expiryDate: z.string().nullable().optional(),
+  maxSelectionCount: z.coerce.number().int().positive().nullable().optional(),
   /** Set a new password (enables protection). Pass null to remove protection. */
   password: z.string().min(4).nullable().optional(),
 });

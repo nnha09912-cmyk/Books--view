@@ -256,7 +256,7 @@ export default function GalleryPage({
         identifiedRef.current = false;
         requireIdentity({ kind: "like", id });
       } else {
-        toast("Có lỗi xảy ra, thử lại nhé");
+        toast(e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé");
       }
     }
   }

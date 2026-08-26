@@ -403,6 +403,30 @@ function GalleryTab({
     }
   }
 
+  async function handleDriveSync() {
+    setSyncing(true);
+    setSyncProgress("Đang đồng bộ với Drive...");
+    try {
+      const res = await fetch(`/api/albums/${album.id}/photos/drive-sync`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message ?? "Đồng bộ Drive thất bại");
+      toast(
+        `Đồng bộ xong — thêm ${data.added} ảnh mới${
+          data.removed ? `, xoá ${data.removed} ảnh không còn trong Drive` : ""
+        }.`
+      );
+      onSynced();
+    } catch (e) {
+      toast(String(e instanceof Error ? e.message : e));
+    } finally {
+      setSyncing(false);
+      setSyncProgress("");
+    }
+  }
+
   async function handleSync() {
     if (!fsSupported) {
       toast("Trình duyệt này chưa hỗ trợ chọn thư mục — hãy dùng Chrome hoặc Edge.");
@@ -455,7 +479,7 @@ function GalleryTab({
 
   return (
     <>
-      {!fsSupported && (
+      {!album.googleDriveFolderId && !fsSupported && (
         <div
           className="card mb-md"
           style={{
@@ -481,7 +505,11 @@ function GalleryTab({
         <Button variant="secondary" size="sm" disabled>
           Sắp xếp lại
         </Button>
-        <Button size="sm" onClick={handleSync} disabled={syncing || !fsSupported}>
+        <Button
+          size="sm"
+          onClick={album.googleDriveFolderId ? handleDriveSync : handleSync}
+          disabled={syncing || (!album.googleDriveFolderId && !fsSupported)}
+        >
           <RefreshCw size={14} className={syncing ? "animate-spin" : undefined} />
           {syncing ? syncProgress || "Đang đồng bộ..." : "Đồng bộ ảnh"}
         </Button>

@@ -35,6 +35,7 @@ const bodySchema = z.object({
   description: z.string().optional(),
   template: z.string().default("classic"),
   expiryDate: z.string().optional(),
+  maxSelectionCount: z.coerce.number().int().positive().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { name, description, template, expiryDate } = parsed.data;
+  const { name, description, template, expiryDate, maxSelectionCount } = parsed.data;
   const linkToken = randomBytes(6).toString("hex");
 
   const album = await prisma.album.create({
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
       template,
       linkToken,
       expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+      maxSelectionCount,
     },
   });
 

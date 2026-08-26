@@ -45,6 +45,24 @@ export async function POST(
     return new NextResponse(null, { status: 204 });
   }
 
+  if (type === "like") {
+    const album = await prisma.album.findUnique({
+      where: { id: guest.albumId },
+      select: { maxSelectionCount: true },
+    });
+    if (album?.maxSelectionCount) {
+      const likedCount = await prisma.selection.count({
+        where: { customerId: guest.id, likeType: "like" },
+      });
+      if (likedCount >= album.maxSelectionCount) {
+        return NextResponse.json(
+          { error: { message: `Bạn chỉ được chọn tối đa ${album.maxSelectionCount} ảnh` } },
+          { status: 403 }
+        );
+      }
+    }
+  }
+
   await prisma.$transaction([
     prisma.selection.create({
       data: { customerId: guest.id, photoId, likeType: type },
