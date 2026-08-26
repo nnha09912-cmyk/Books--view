@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Share2, Heart, Star, RefreshCw, AlertTriangle, HardDrive } from "lucide-react";
+import {
+  Share2,
+  Heart,
+  Star,
+  RefreshCw,
+  AlertTriangle,
+  HardDrive,
+  ArrowDownToLine,
+} from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Button } from "@/components/ui/button";
@@ -115,7 +123,7 @@ export default function AlbumDetailPage({
               </p>
             </div>
             <div className="flex gap-sm">
-              <ShareDialog shareLink={shareLink} />
+              <ShareDialog albumName={album.name} linkToken={album.linkToken} />
               <Button asChild>
                 <Link href={`/album/${album.linkToken}`}>Xem như khách</Link>
               </Button>
@@ -163,7 +171,75 @@ export default function AlbumDetailPage({
   );
 }
 
-function ShareDialog({ shareLink }: { shareLink: string }) {
+function ShareLinkSection({
+  title,
+  badge,
+  description,
+  link,
+  qrFilename,
+}: {
+  title: string;
+  badge?: string;
+  description: string;
+  link: string;
+  qrFilename: string;
+}) {
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
+  return (
+    <div className="card mb-md">
+      <div className="card-body lg">
+        <div className="flex items-center gap-sm mb-sm">
+          <h3 style={{ margin: 0 }}>{title}</h3>
+          {badge && <Badge variant="accent">{badge}</Badge>}
+        </div>
+        <p className="text-secondary text-sm mb-md">{description}</p>
+        <div className="flex gap-sm mb-md">
+          <input className="input mono" style={{ fontSize: 12 }} readOnly value={link} />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard.writeText(link);
+              toast("Đã copy link");
+            }}
+          >
+            Sao chép
+          </Button>
+        </div>
+        <div className="flex items-center gap-md">
+          <Image
+            src={qrUrl}
+            alt="QR"
+            width={96}
+            height={96}
+            unoptimized
+            style={{ background: "var(--muted)", borderRadius: "var(--radius-sm)" }}
+          />
+          <a
+            href={qrUrl}
+            download={`${qrFilename}.png`}
+            className="inline-flex items-center gap-sm text-sm"
+            style={{ color: "var(--accent)", fontWeight: 600 }}
+          >
+            <ArrowDownToLine size={14} />
+            {qrFilename}.PNG
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShareDialog({
+  albumName,
+  linkToken,
+}: {
+  albumName: string;
+  linkToken: string;
+}) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const selectLink = `${origin}/album/${linkToken}/gallery`;
+  const viewLink = `${origin}/album/${linkToken}`;
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -176,34 +252,19 @@ function ShareDialog({ shareLink }: { shareLink: string }) {
         <DialogHeader>
           <DialogTitle>Chia sẻ album</DialogTitle>
         </DialogHeader>
-        <div className="field mb-md">
-          <label>Link riêng</label>
-          <div className="flex gap-sm">
-            <input
-              className="input mono"
-              style={{ fontSize: 12 }}
-              readOnly
-              value={shareLink}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                navigator.clipboard.writeText(shareLink);
-                toast("Đã copy link");
-              }}
-            >
-              Copy
-            </Button>
-          </div>
-        </div>
-        <div className="field mb-md">
-          <label>Gửi email cho khách</label>
-          <input className="input" placeholder="khach@email.com" />
-        </div>
-        <DialogFooter>
-          <Button onClick={() => toast("Đã gửi lời mời")}>Gửi lời mời</Button>
-        </DialogFooter>
+        <ShareLinkSection
+          title="Khách chọn ảnh"
+          badge="ƯU TIÊN"
+          description="Gửi link này cho khách để họ chọn những ảnh yêu thích."
+          link={selectLink}
+          qrFilename={albumName}
+        />
+        <ShareLinkSection
+          title="Chỉ xem album"
+          description="Gửi link này cho khách để xem album."
+          link={viewLink}
+          qrFilename={`${albumName}-xem`}
+        />
       </DialogContent>
     </Dialog>
   );
