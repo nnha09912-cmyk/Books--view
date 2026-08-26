@@ -505,9 +505,9 @@ function GalleryTab({
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error?.message ?? "Đồng bộ Drive thất bại");
       toast(
-        `Đồng bộ xong — thêm ${data.added} ảnh mới${
-          data.removed ? `, xoá ${data.removed} ảnh không còn trong Drive` : ""
-        }.`
+        data.added > 0
+          ? `Đã quét Drive — thêm ${data.added} ảnh mới.`
+          : "Đã quét Drive — không có ảnh mới."
       );
       onSynced();
     } catch (e) {

@@ -2,6 +2,8 @@
 // only an API key — no OAuth, no per-studio login. The studio just shares a
 // Drive folder as link-viewable and pastes the link into Books View.
 
+import { prisma } from "@/lib/db";
+
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 
 export interface DriveImageFile {
@@ -60,6 +62,78 @@ function requireApiKey(): string {
   const key = process.env.GOOGLE_DRIVE_API_KEY;
   if (!key) throw new Error("GOOGLE_DRIVE_API_KEY chưa được cấu hình trên server.");
   return key;
+}
+
+export interface DriveImportResult {
+  added: number;
+  skipped: number;
+  errors: string[];
+}
+
+/** Shared by drive-import (paste a link, add its photos) and drive-sync
+ * (re-check the album's already-linked folder) — deliberately additive
+ * only: detect new files, add them, skip anything already there by
+ * filename. Never touches existing Photo rows, so it can never delete a
+ * photo, orphan a guest's selection, or create a second album — sync is
+ * just "does this folder have anything we don't have yet." */
+export async function importNewPhotosFromDrive(
+  albumId: string,
+  folderId: string
+): Promise<DriveImportResult> {
+  const driveFiles = await listDriveImages(folderId);
+  if (driveFiles.length === 0) {
+    throw new Error(
+      "Không tìm thấy ảnh nào trong folder — kiểm tra chế độ chia sẻ (Anyone with the link)."
+    );
+  }
+
+  const existing = await prisma.photo.findMany({
+    where: { albumId },
+    select: { filename: true },
+  });
+  const existingNames = new Set(existing.map((p) => p.filename));
+
+  let added = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const file of driveFiles) {
+    const filename = sanitizeDriveFilename(file.name);
+    if (!filename) continue;
+    if (existingNames.has(filename)) {
+      skipped++;
+      continue;
+    }
+    try {
+      const previewUrl = file.thumbnailLink
+        ? driveThumbnailUrl(file.thumbnailLink, 1600)
+        : driveDownloadUrl(file.id);
+      await prisma.photo.create({
+        data: {
+          albumId,
+          filename,
+          originalUrl: driveDownloadUrl(file.id),
+          thumbnailUrl: previewUrl,
+          previewUrl,
+          fileSize: file.size ? Number(file.size) : null,
+          mimeType: file.mimeType || null,
+          googleDriveId: file.id,
+        },
+      });
+      existingNames.add(filename);
+      added++;
+    } catch (e) {
+      errors.push(`${filename}: ${String(e instanceof Error ? e.message : e)}`);
+    }
+  }
+
+  const photoCount = await prisma.photo.count({ where: { albumId } });
+  await prisma.album.update({
+    where: { id: albumId },
+    data: { photoCount, googleDriveFolderId: folderId },
+  });
+
+  return { added, skipped, errors };
 }
 
 /** Lists image files directly inside a public Drive folder (non-recursive). */

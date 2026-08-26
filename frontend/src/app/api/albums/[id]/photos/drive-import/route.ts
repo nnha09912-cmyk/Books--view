@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentStudio } from "@/lib/auth";
-import {
-  extractDriveFolderId,
-  listDriveImages,
-  driveThumbnailUrl,
-  driveDownloadUrl,
-  sanitizeDriveFilename,
-} from "@/lib/google-drive";
+import { extractDriveFolderId, importNewPhotosFromDrive } from "@/lib/google-drive";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -56,64 +50,13 @@ export async function POST(
     );
   }
 
-  let driveFiles;
   try {
-    driveFiles = await listDriveImages(folderId);
+    const result = await importNewPhotosFromDrive(album.id, folderId);
+    return NextResponse.json(result);
   } catch (e) {
-    return NextResponse.json({ error: { message: String(e instanceof Error ? e.message : e) } }, { status: 400 });
-  }
-  if (driveFiles.length === 0) {
     return NextResponse.json(
-      { error: { message: "Không tìm thấy ảnh nào trong folder — kiểm tra chế độ chia sẻ (Anyone with the link)." } },
+      { error: { message: String(e instanceof Error ? e.message : e) } },
       { status: 400 }
     );
   }
-
-  const existing = await prisma.photo.findMany({
-    where: { albumId: album.id },
-    select: { filename: true },
-  });
-  const existingNames = new Set(existing.map((p) => p.filename));
-
-  let added = 0;
-  let skipped = 0;
-  const errors: string[] = [];
-
-  for (const file of driveFiles) {
-    const filename = sanitizeDriveFilename(file.name);
-    if (!filename) continue;
-    if (existingNames.has(filename)) {
-      skipped++;
-      continue;
-    }
-    try {
-      const previewUrl = file.thumbnailLink
-        ? driveThumbnailUrl(file.thumbnailLink, 1600)
-        : driveDownloadUrl(file.id);
-      await prisma.photo.create({
-        data: {
-          albumId: album.id,
-          filename,
-          originalUrl: driveDownloadUrl(file.id),
-          thumbnailUrl: previewUrl,
-          previewUrl,
-          fileSize: file.size ? Number(file.size) : null,
-          mimeType: file.mimeType || null,
-          googleDriveId: file.id,
-        },
-      });
-      existingNames.add(filename);
-      added++;
-    } catch (e) {
-      errors.push(`${filename}: ${String(e instanceof Error ? e.message : e)}`);
-    }
-  }
-
-  const photoCount = await prisma.photo.count({ where: { albumId: album.id } });
-  await prisma.album.update({
-    where: { id: album.id },
-    data: { photoCount, googleDriveFolderId: folderId },
-  });
-
-  return NextResponse.json({ added, skipped, errors });
 }
