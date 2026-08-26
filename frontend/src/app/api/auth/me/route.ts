@@ -16,6 +16,7 @@ export async function GET() {
       slug: studio.slug,
       phone: studio.phone,
       description: studio.description,
+      logoUrl: studio.logoUrl,
     },
   });
 }
@@ -24,6 +25,7 @@ const patchSchema = z.object({
   name: z.string().min(1).optional(),
   phone: z.string().optional(),
   description: z.string().optional(),
+  logoUrl: z.string().url().optional(),
   currentPassword: z.string().min(1).optional(),
   newPassword: z.string().min(8).optional(),
 });
@@ -73,6 +75,7 @@ export async function PATCH(req: NextRequest) {
       slug: studio.slug,
       phone: studio.phone,
       description: studio.description,
+      logoUrl: studio.logoUrl,
     },
   });
 }

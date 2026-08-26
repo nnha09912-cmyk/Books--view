@@ -11,6 +11,7 @@ export interface CurrentStudio {
   slug: string;
   phone: string | null;
   description: string | null;
+  logoUrl: string | null;
 }
 
 export function useStudio() {

@@ -22,6 +22,11 @@ function ProfileTab() {
   const [studioName, setStudioName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [logoUrl, setLogoUrl] = useState("");
+  const [editingAvatar, setEditingAvatar] = useState(false);
+  const [avatarInput, setAvatarInput] = useState("");
+  const [savingAvatar, setSavingAvatar] = useState(false);
+
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -33,6 +38,7 @@ function ProfileTab() {
     setPhone(studio.phone ?? "");
     setDescription(studio.description ?? "");
     setStudioName(studio.name);
+    setLogoUrl(studio.logoUrl ?? "");
   }, [studio]);
 
   if (loading || !studio) return <p className="text-secondary">Đang tải...</p>;
@@ -49,6 +55,31 @@ function ProfileTab() {
       toast(err instanceof ApiError ? err.message : "Không thể lưu");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleChangeAvatar() {
+    let url: URL;
+    try {
+      url = new URL(avatarInput.trim());
+    } catch {
+      toast("Link ảnh không hợp lệ");
+      return;
+    }
+    setSavingAvatar(true);
+    try {
+      await api("/api/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({ logoUrl: url.toString() }),
+      });
+      setLogoUrl(url.toString());
+      setEditingAvatar(false);
+      setAvatarInput("");
+      toast("Đã đổi ảnh đại diện");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không thể đổi ảnh đại diện");
+    } finally {
+      setSavingAvatar(false);
     }
   }
 
@@ -95,15 +126,44 @@ function ProfileTab() {
           <Image
             className="avatar"
             style={{ width: 64, height: 64 }}
-            src={pravatar(12, 128)}
+            src={logoUrl || pravatar(12, 128)}
             alt=""
             width={64}
             height={64}
             unoptimized
           />
-          <Button variant="secondary" size="sm" disabled>
-            Đổi ảnh đại diện
-          </Button>
+          {!editingAvatar ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setAvatarInput(logoUrl);
+                setEditingAvatar(true);
+              }}
+            >
+              Đổi ảnh đại diện
+            </Button>
+          ) : (
+            <div style={{ display: "flex", gap: 8, flex: 1 }}>
+              <input
+                className="input"
+                style={{ flex: 1 }}
+                value={avatarInput}
+                onChange={(e) => setAvatarInput(e.target.value)}
+                placeholder="Dán link ảnh (https://...)"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditingAvatar(false)}
+              >
+                Huỷ
+              </Button>
+              <Button size="sm" onClick={handleChangeAvatar} disabled={savingAvatar}>
+                {savingAvatar ? "Đang lưu..." : "Lưu"}
+              </Button>
+            </div>
+          )}
         </div>
         <div className="field">
           <label>Tên studio</label>
