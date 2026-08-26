@@ -93,10 +93,6 @@ export default function AlbumDetailPage({
   }
   if (!album) return null;
 
-  const shareLink =
-    (typeof window !== "undefined" ? window.location.origin : "") +
-    `/album/${album.linkToken}`;
-
   return (
     <>
       <AppHeader showAvatar />
@@ -140,11 +136,7 @@ export default function AlbumDetailPage({
             </TabsList>
 
             <TabsContent value="overview" className="mt-lg">
-              <OverviewTab
-                album={album}
-                shareLink={shareLink}
-                onStatusChange={handleStatusChange}
-              />
+              <OverviewTab album={album} onStatusChange={handleStatusChange} />
             </TabsContent>
             <TabsContent value="gallery" className="mt-lg">
               <GalleryTab album={album} onSynced={reloadAlbum} />
@@ -272,97 +264,45 @@ function ShareDialog({
 
 function OverviewTab({
   album,
-  shareLink,
   onStatusChange,
 }: {
   album: AlbumDetail;
-  shareLink: string;
   onStatusChange: (status: string) => void;
 }) {
   return (
     <>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.6fr 1fr",
-          gap: 24,
-          alignItems: "start",
-        }}
-      >
-        <div className="card">
-          <div className="card-body lg">
-            <h3 className="mb-md">Thông tin album</h3>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-                fontSize: 13,
-              }}
-            >
-              <div className="flex justify-between">
-                <span className="text-secondary">Mô tả</span>
-                <span style={{ textAlign: "right", maxWidth: "60%" }}>
-                  {album.description || "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-secondary">Template</span>
-                <span>{album.template}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-secondary">Trạng thái</span>
-                <StatusMenu status={album.status} onChange={onStatusChange} />
-              </div>
-              <div className="flex justify-between">
-                <span className="text-secondary">Hết hạn</span>
-                <span>
-                  {album.expiryDate
-                    ? new Date(album.expiryDate).toLocaleDateString("vi-VN")
-                    : "Không giới hạn"}
-                </span>
-              </div>
+      <div className="card" style={{ maxWidth: 480 }}>
+        <div className="card-body lg">
+          <h3 className="mb-md">Thông tin album</h3>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              fontSize: 13,
+            }}
+          >
+            <div className="flex justify-between">
+              <span className="text-secondary">Mô tả</span>
+              <span style={{ textAlign: "right", maxWidth: "60%" }}>
+                {album.description || "—"}
+              </span>
             </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-body lg">
-            <h3 className="mb-md">Link chia sẻ</h3>
-            <div className="flex gap-sm mb-md">
-              <input
-                className="input mono"
-                style={{ fontSize: 12 }}
-                readOnly
-                value={shareLink}
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  navigator.clipboard.writeText(shareLink);
-                  toast("Đã copy link");
-                }}
-              >
-                Copy
-              </Button>
+            <div className="flex justify-between">
+              <span className="text-secondary">Template</span>
+              <span>{album.template}</span>
             </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                padding: 16,
-                background: "var(--muted)",
-                borderRadius: "var(--radius-sm)",
-              }}
-            >
-              <Image
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(shareLink)}`}
-                alt="QR"
-                width={120}
-                height={120}
-                unoptimized
-              />
+            <div className="flex justify-between">
+              <span className="text-secondary">Trạng thái</span>
+              <StatusMenu status={album.status} onChange={onStatusChange} />
+            </div>
+            <div className="flex justify-between">
+              <span className="text-secondary">Hết hạn</span>
+              <span>
+                {album.expiryDate
+                  ? new Date(album.expiryDate).toLocaleDateString("vi-VN")
+                  : "Không giới hạn"}
+              </span>
             </div>
           </div>
         </div>
