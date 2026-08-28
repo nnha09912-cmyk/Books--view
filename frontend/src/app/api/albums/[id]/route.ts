@@ -41,10 +41,14 @@ export async function GET(
     linkToken: album.linkToken,
     photoCount: album.photos.length,
     expiryDate: album.expiryDate,
+    eventDate: album.eventDate,
     passwordProtected: !!album.passwordHash,
     createdAt: album.createdAt,
     googleDriveFolderId: album.googleDriveFolderId,
     maxSelectionCount: album.maxSelectionCount,
+    downloadEnabled: album.downloadEnabled,
+    downloadPasswordProtected: !!album.downloadPasswordHash,
+    downloadExpiryDate: album.downloadExpiryDate,
     photos: album.photos.map((p) => ({
       id: p.id,
       filename: p.filename,
@@ -76,9 +80,18 @@ const patchSchema = z.object({
   template: z.string().optional(),
   status: z.string().optional(),
   expiryDate: z.string().nullable().optional(),
+  eventDate: z.string().nullable().optional(),
   maxSelectionCount: z.coerce.number().int().positive().nullable().optional(),
   /** Set a new password (enables protection). Pass null to remove protection. */
   password: z.string().min(4).nullable().optional(),
+  downloadEnabled: z.boolean().optional(),
+  downloadExpiryDate: z.string().nullable().optional(),
+  /** Set a new Download password. Pass null to remove it (Download stays
+   * gated by downloadEnabled alone). */
+  downloadPassword: z.string().min(4).nullable().optional(),
+  /** Forces every guest currently identified for this album to re-identify
+   * — independent of changing the password. */
+  revokeGuestSessions: z.boolean().optional(),
 });
 
 export async function PATCH(
@@ -101,7 +114,20 @@ export async function PATCH(
       { status: 400 }
     );
   }
-  const { expiryDate, password, ...rest } = parsed.data;
+  const {
+    expiryDate,
+    eventDate,
+    password,
+    downloadExpiryDate,
+    downloadPassword,
+    revokeGuestSessions,
+    ...rest
+  } = parsed.data;
+  // Changing the Primary Password fundamentally changes who should still
+  // count as authenticated, so it revokes existing guest sessions the same
+  // as an explicit "Revoke Sessions" — matches the Studio sessionVersion
+  // pattern (password change there also invalidates old session tokens).
+  const bumpGuestSessions = password !== undefined || revokeGuestSessions === true;
   const album = await prisma.album.update({
     where: { id: params.id },
     data: {
@@ -109,9 +135,19 @@ export async function PATCH(
       ...(expiryDate !== undefined
         ? { expiryDate: expiryDate ? new Date(expiryDate) : null }
         : {}),
+      ...(eventDate !== undefined
+        ? { eventDate: eventDate ? new Date(eventDate) : null }
+        : {}),
       ...(password !== undefined
         ? { passwordHash: password ? await hashPassword(password) : null }
         : {}),
+      ...(downloadExpiryDate !== undefined
+        ? { downloadExpiryDate: downloadExpiryDate ? new Date(downloadExpiryDate) : null }
+        : {}),
+      ...(downloadPassword !== undefined
+        ? { downloadPasswordHash: downloadPassword ? await hashPassword(downloadPassword) : null }
+        : {}),
+      ...(bumpGuestSessions ? { guestSessionVersion: { increment: 1 } } : {}),
     },
   });
   return NextResponse.json({
@@ -119,6 +155,10 @@ export async function PATCH(
     name: album.name,
     status: album.status,
     passwordProtected: !!album.passwordHash,
+    downloadEnabled: album.downloadEnabled,
+    downloadPasswordProtected: !!album.downloadPasswordHash,
+    downloadExpiryDate: album.downloadExpiryDate,
+    guestSessionVersion: album.guestSessionVersion,
   });
 }
 

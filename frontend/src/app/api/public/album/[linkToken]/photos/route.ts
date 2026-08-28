@@ -19,8 +19,26 @@ export async function GET(
       { status: 403 }
     );
   }
+  if (album.expiryDate && album.expiryDate < new Date()) {
+    return NextResponse.json(
+      { error: { message: "Album đã hết hạn, không thể xem." } },
+      { status: 403 }
+    );
+  }
 
   const guest = await getGuestCustomer(params.linkToken);
+
+  // A password-protected album must not hand out actual photo URLs to
+  // anyone who merely has the link — only to a guest who has identified at
+  // least once (name+phone, or the album password). Albums with no password
+  // keep working exactly as before (public share-link browsing).
+  if (album.passwordHash && !guest) {
+    return NextResponse.json(
+      { error: { message: "Album này yêu cầu xác nhận trước khi xem." } },
+      { status: 401 }
+    );
+  }
+
   const mySelections = guest
     ? await prisma.selection.findMany({ where: { customerId: guest.id } })
     : [];

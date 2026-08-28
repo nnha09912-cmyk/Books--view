@@ -25,14 +25,14 @@ export default function LoginPage() {
     const form = new FormData(e.currentTarget);
     setLoading(true);
     try {
-      await api("/api/auth/login", {
+      const res = await api<{ studio: { role: string } }>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({
           identifier: form.get("identifier"),
           password: form.get("password"),
         }),
       });
-      router.push("/dashboard");
+      router.push(res.studio.role === "ADMIN" ? "/system-owner" : "/dashboard");
       router.refresh();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Đăng nhập thất bại");
@@ -76,9 +76,9 @@ export default function LoginPage() {
         <div className="field">
           <div className="flex justify-between items-center">
             <label htmlFor="pass">Mật khẩu</label>
-            <a href="#" className="text-sm" style={{ color: "var(--accent)" }}>
+            <Link href="/forgot-password" className="text-sm" style={{ color: "var(--accent)" }}>
               Quên mật khẩu?
-            </a>
+            </Link>
           </div>
           <input
             className="input"

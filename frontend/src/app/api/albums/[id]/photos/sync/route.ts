@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
+import { put } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { getCurrentStudio } from "@/lib/auth";
-import { resizeForWeb } from "@/lib/image-resize";
+import { resizeForWeb, InvalidImageError } from "@/lib/image-resize";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Bounds how much a single sync request can make the server decode/process
+// in one shot — independent of the per-file size/pixel limits in
+// resizeForWeb, which only bound one file at a time.
+const MAX_FILES_PER_SYNC = 60;
 
 function sanitizeFilename(name: string) {
   return name.replace(/[\\/:*?"<>|]/g, "_").replace(/^\.+/, "");
@@ -36,6 +41,12 @@ export async function POST(
   if (!album) {
     return NextResponse.json({ error: { message: "Không tìm thấy album" } }, { status: 404 });
   }
+  if (!checkRateLimit(`drive-sync:${studio.id}`, 10, 5 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: { message: "Bạn đồng bộ quá nhanh, thử lại sau ít phút nhé." } },
+      { status: 429 }
+    );
+  }
 
   const form = await req.formData();
   const overwrite = form.get("overwrite") === "true";
@@ -43,17 +54,18 @@ export async function POST(
   if (files.length === 0) {
     return NextResponse.json({ error: { message: "Không có file nào được gửi lên" } }, { status: 400 });
   }
+  if (files.length > MAX_FILES_PER_SYNC) {
+    return NextResponse.json(
+      { error: { message: `Chỉ được đồng bộ tối đa ${MAX_FILES_PER_SYNC} ảnh mỗi lần.` } },
+      { status: 400 }
+    );
+  }
 
   const existing = await prisma.photo.findMany({
     where: { albumId: album.id },
     select: { id: true, filename: true },
   });
   const existingByName = new Map(existing.map((p) => [p.filename, p.id]));
-
-  const uploadDir = path.join(process.cwd(), "public", "uploads", album.id);
-  const previewDir = path.join(uploadDir, "previews");
-  await mkdir(uploadDir, { recursive: true });
-  await mkdir(previewDir, { recursive: true });
 
   let added = 0;
   let overwritten = 0;
@@ -70,17 +82,37 @@ export async function POST(
     }
     try {
       const bytes = Buffer.from(await file.arrayBuffer());
-      await writeFile(path.join(uploadDir, filename), bytes);
-      const url = `/uploads/${album.id}/${encodeURIComponent(filename)}`;
+
+      // Validate (real decode + format allowlist + size/pixel limits) BEFORE
+      // anything touches disk — a file that isn't actually a supported
+      // image must never be written into public/uploads, since that
+      // directory is served directly to the web.
+      const previewBytes = await resizeForWeb(bytes);
+
+      const original = await put(`albums/${album.id}/${filename}`, bytes, {
+        access: "public",
+        contentType: file.type || undefined,
+        // Sanitized filenames can still collide across re-syncs (that's
+        // exactly the `already`/overwrite case below) — a random suffix
+        // would break the "same URL means same photo" assumption the
+        // overwrite path relies on, so keep the deterministic pathname.
+        addRandomSuffix: false,
+        allowOverwrite: true,
+      });
+      const url = original.url;
 
       // Web-facing views (grid/masonry/carousel/lightbox) load the resized
       // preview — same URL everywhere so the browser has it cached before
       // the lightbox even opens. originalUrl keeps the untouched file for
       // the explicit Download action.
       const previewName = previewFilename(filename);
-      const previewBytes = await resizeForWeb(bytes);
-      await writeFile(path.join(previewDir, previewName), previewBytes);
-      const previewUrl = `/uploads/${album.id}/previews/${encodeURIComponent(previewName)}`;
+      const preview = await put(`albums/${album.id}/previews/${previewName}`, previewBytes, {
+        access: "public",
+        contentType: "image/jpeg",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+      });
+      const previewUrl = preview.url;
 
       if (already) {
         await prisma.photo.update({
@@ -108,7 +140,9 @@ export async function POST(
         added++;
       }
     } catch (e) {
-      errors.push(`${filename}: ${String(e)}`);
+      console.error(`sync failed for ${filename}`, e);
+      const message = e instanceof InvalidImageError ? e.message : "Không thể xử lý ảnh này";
+      errors.push(`${filename}: ${message}`);
     }
   }
 

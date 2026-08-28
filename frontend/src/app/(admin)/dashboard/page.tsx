@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useStudio } from "@/lib/use-studio";
 import { api } from "@/lib/api-client";
 import { mockActivity, pravatar } from "@/lib/mock-data";
+import { studioDisplayName } from "@/lib/studio-name";
 import type { AlbumSummary } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -33,7 +34,7 @@ export default function DashboardPage() {
     <AdminShell>
       <div className="page-head">
         <div>
-          <h1>Chào buổi sáng, {studio.name} 👋</h1>
+          <h1>Chào buổi sáng, {studioDisplayName(studio)} 👋</h1>
           <p className="text-secondary mb-sm" style={{ marginTop: 6 }}>
             Đây là tổng quan hoạt động studio của bạn.
           </p>

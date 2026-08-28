@@ -6,13 +6,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 import {
-  Share2,
   Heart,
   Star,
   RefreshCw,
   AlertTriangle,
   HardDrive,
-  ArrowDownToLine,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -29,10 +27,12 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusMenu } from "@/components/status-menu";
+import { ShareAlbumDialog } from "@/components/share-album-dialog";
 import { picsum } from "@/lib/mock-data";
 import { useStudio } from "@/lib/use-studio";
 import { api, ApiError } from "@/lib/api-client";
 import { isFileSystemAccessSupported, buildSourceIndex } from "@/lib/fs-filter";
+import { ALBUM_TEMPLATES } from "@/lib/album-templates";
 import type { AlbumDetail, AlbumPhoto } from "@/lib/types";
 
 export default function AlbumDetailPage({
@@ -119,7 +119,7 @@ export default function AlbumDetailPage({
               </p>
             </div>
             <div className="flex gap-sm">
-              <ShareDialog albumName={album.name} linkToken={album.linkToken} />
+              <ShareAlbumDialog albumName={album.name} linkToken={album.linkToken} />
               <Button asChild>
                 <Link href={`/album/${album.linkToken}/gallery`}>Xem như khách</Link>
               </Button>
@@ -163,104 +163,6 @@ export default function AlbumDetailPage({
   );
 }
 
-function ShareLinkSection({
-  title,
-  badge,
-  description,
-  link,
-  qrFilename,
-}: {
-  title: string;
-  badge?: string;
-  description: string;
-  link: string;
-  qrFilename: string;
-}) {
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
-  return (
-    <div className="card mb-md">
-      <div className="card-body lg">
-        <div className="flex items-center gap-sm mb-sm">
-          <h3 style={{ margin: 0 }}>{title}</h3>
-          {badge && <Badge variant="accent">{badge}</Badge>}
-        </div>
-        <p className="text-secondary text-sm mb-md">{description}</p>
-        <div className="flex gap-sm mb-md">
-          <input className="input mono" style={{ fontSize: 12 }} readOnly value={link} />
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              navigator.clipboard.writeText(link);
-              toast("Đã copy link");
-            }}
-          >
-            Sao chép
-          </Button>
-        </div>
-        <div className="flex items-center gap-md">
-          <Image
-            src={qrUrl}
-            alt="QR"
-            width={96}
-            height={96}
-            unoptimized
-            style={{ background: "var(--muted)", borderRadius: "var(--radius-sm)" }}
-          />
-          <a
-            href={qrUrl}
-            download={`${qrFilename}.png`}
-            className="inline-flex items-center gap-sm text-sm"
-            style={{ color: "var(--accent)", fontWeight: 600 }}
-          >
-            <ArrowDownToLine size={14} />
-            {qrFilename}.PNG
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ShareDialog({
-  albumName,
-  linkToken,
-}: {
-  albumName: string;
-  linkToken: string;
-}) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const selectLink = `${origin}/album/${linkToken}/gallery`;
-  const viewLink = `${origin}/album/${linkToken}`;
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="secondary">
-          <Share2 size={16} />
-          Chia sẻ
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Chia sẻ album</DialogTitle>
-        </DialogHeader>
-        <ShareLinkSection
-          title="Khách chọn ảnh"
-          badge="ƯU TIÊN"
-          description="Gửi link này cho khách để họ chọn những ảnh yêu thích."
-          link={selectLink}
-          qrFilename={albumName}
-        />
-        <ShareLinkSection
-          title="Chỉ xem album"
-          description="Gửi link này cho khách để xem album."
-          link={viewLink}
-          qrFilename={`${albumName}-xem`}
-        />
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function OverviewTab({
   album,
@@ -851,13 +753,32 @@ function SettingsTab({
   const [expiryDate, setExpiryDate] = useState(
     album.expiryDate ? album.expiryDate.slice(0, 10) : ""
   );
+  const [eventDate, setEventDate] = useState(
+    album.eventDate ? album.eventDate.slice(0, 10) : ""
+  );
   const [passwordEnabled, setPasswordEnabled] = useState(album.passwordProtected);
   const [passwordValue, setPasswordValue] = useState("");
+  const [downloadEnabled, setDownloadEnabled] = useState(album.downloadEnabled);
+  const [downloadPasswordEnabled, setDownloadPasswordEnabled] = useState(
+    album.downloadPasswordProtected
+  );
+  const [downloadPasswordValue, setDownloadPasswordValue] = useState("");
+  const [downloadExpiryDate, setDownloadExpiryDate] = useState(
+    album.downloadExpiryDate ? album.downloadExpiryDate.slice(0, 10) : ""
+  );
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
     if (passwordEnabled && !album.passwordProtected && !passwordValue.trim()) {
       toast("Nhập mật khẩu cho album trước khi bật bảo vệ.");
+      return;
+    }
+    if (
+      downloadPasswordEnabled &&
+      !album.downloadPasswordProtected &&
+      !downloadPasswordValue.trim()
+    ) {
+      toast("Nhập mật khẩu tải ảnh trước khi bật bảo vệ.");
       return;
     }
     setSaving(true);
@@ -867,18 +788,42 @@ function SettingsTab({
         description,
         template,
         expiryDate: expiryDate || null,
+        eventDate: eventDate || null,
+        downloadEnabled,
+        downloadExpiryDate: downloadExpiryDate || null,
       };
       if (passwordEnabled && passwordValue.trim()) {
         body.password = passwordValue.trim();
       } else if (!passwordEnabled && album.passwordProtected) {
         body.password = null;
       }
-      const res = await api<{ passwordProtected: boolean }>(`/api/albums/${album.id}`, {
+      if (downloadPasswordEnabled && downloadPasswordValue.trim()) {
+        body.downloadPassword = downloadPasswordValue.trim();
+      } else if (!downloadPasswordEnabled && album.downloadPasswordProtected) {
+        body.downloadPassword = null;
+      }
+      const res = await api<{
+        passwordProtected: boolean;
+        downloadEnabled: boolean;
+        downloadPasswordProtected: boolean;
+        downloadExpiryDate: string | null;
+      }>(`/api/albums/${album.id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
       });
-      onSaved({ name, description, template, expiryDate, passwordProtected: res.passwordProtected });
+      onSaved({
+        name,
+        description,
+        template,
+        expiryDate,
+        eventDate,
+        passwordProtected: res.passwordProtected,
+        downloadEnabled: res.downloadEnabled,
+        downloadPasswordProtected: res.downloadPasswordProtected,
+        downloadExpiryDate: res.downloadExpiryDate,
+      });
       setPasswordValue("");
+      setDownloadPasswordValue("");
       toast("Đã lưu thay đổi");
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Không thể lưu");
@@ -894,7 +839,7 @@ function SettingsTab({
         style={{ display: "flex", flexDirection: "column", gap: 16 }}
       >
         <div className="field">
-          <label>Tên album</label>
+          <label style={{ fontWeight: 600 }}>Tên album</label>
           <input
             className="input"
             value={name}
@@ -902,7 +847,7 @@ function SettingsTab({
           />
         </div>
         <div className="field">
-          <label>Mô tả</label>
+          <label style={{ fontWeight: 600 }}>Mô tả</label>
           <textarea
             className="input"
             value={description}
@@ -910,18 +855,17 @@ function SettingsTab({
           />
         </div>
         <div className="field">
-          <label>Template</label>
+          <label style={{ fontWeight: 600 }}>Template</label>
           <select
             className="input"
             value={template}
             onChange={(e) => setTemplate(e.target.value)}
           >
-            <option value="classic">Classic</option>
-            <option value="premium">Premium</option>
-            <option value="wedding">Wedding</option>
-            <option value="family">Family</option>
-            <option value="editorial">Editorial</option>
-            <option value="minimal">Minimal</option>
+            {ALBUM_TEMPLATES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
           </select>
         </div>
         <div className="flex justify-between items-center">
@@ -951,16 +895,123 @@ function SettingsTab({
               value={passwordValue}
               onChange={(e) => setPasswordValue(e.target.value)}
             />
+            {passwordValue.trim() && (
+              <span className="text-sm" style={{ color: "var(--warning)" }}>
+                Khách đang đăng nhập sẽ bị đăng xuất và phải xác thực lại bằng mật khẩu mới.
+              </span>
+            )}
           </div>
         )}
         <div className="field">
-          <label>Ngày hết hạn</label>
+          <label style={{ fontWeight: 600 }}>Ngày sự kiện</label>
+          <input
+            className="input"
+            type="date"
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
+          />
+          <span className="hint">Ngày cưới / ngày ra trường — hiện trên bìa album. Không bắt buộc.</span>
+        </div>
+        <div className="field">
+          <label style={{ fontWeight: 600 }}>Ngày hết hạn</label>
           <input
             className="input"
             type="date"
             value={expiryDate}
             onChange={(e) => setExpiryDate(e.target.value)}
           />
+        </div>
+        <div className="flex justify-between items-center">
+          <div>
+            <p style={{ fontWeight: 600, fontSize: 13 }}>Cho phép tải ảnh</p>
+            <span className="text-sm">
+              Tắt: khách không thấy nút Download. Bật: khách có thể tải bản đã
+              tối ưu (2048px), không phải file gốc.
+            </span>
+          </div>
+          <Switch
+            checked={downloadEnabled}
+            onCheckedChange={(checked) => setDownloadEnabled(checked === true)}
+          />
+        </div>
+        {downloadEnabled && (
+          <>
+            <div className="flex justify-between items-center">
+              <div>
+                <p style={{ fontWeight: 600, fontSize: 13 }}>Mật khẩu tải ảnh</p>
+                <span className="text-sm">
+                  Riêng cho Download, khác với mật khẩu xem album ở trên.
+                </span>
+              </div>
+              <Switch
+                checked={downloadPasswordEnabled}
+                onCheckedChange={(checked) => setDownloadPasswordEnabled(checked === true)}
+              />
+            </div>
+            {downloadPasswordEnabled && (
+              <div className="field">
+                <label>
+                  {album.downloadPasswordProtected
+                    ? "Đổi mật khẩu tải ảnh (để trống nếu giữ nguyên)"
+                    : "Mật khẩu tải ảnh"}
+                </label>
+                <input
+                  className="input"
+                  type="text"
+                  placeholder={album.downloadPasswordProtected ? "••••••••" : "Tối thiểu 4 ký tự"}
+                  value={downloadPasswordValue}
+                  onChange={(e) => setDownloadPasswordValue(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="field">
+              <label>Ngày hết hạn tải ảnh</label>
+              <input
+                className="input"
+                type="date"
+                value={downloadExpiryDate}
+                onChange={(e) => setDownloadExpiryDate(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+        <div className="field">
+          <label style={{ fontWeight: 600 }}>Link Album</label>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              className="input"
+              readOnly
+              value={typeof window !== "undefined" ? `${window.location.origin}/album/${album.linkToken}` : `/album/${album.linkToken}`}
+              style={{ flex: 1 }}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                const link =
+                  typeof window !== "undefined"
+                    ? `${window.location.origin}/album/${album.linkToken}`
+                    : `/album/${album.linkToken}`;
+                navigator.clipboard.writeText(link);
+                toast("Đã copy link");
+              }}
+            >
+              Sao chép
+            </Button>
+            <RotateLinkDialog albumId={album.id} onRotated={(linkToken) => onSaved({ linkToken })} />
+          </div>
+          <span className="text-sm">
+            Đổi link mới sẽ khiến link cũ ngừng hoạt động — ai đang giữ link cũ sẽ không vào được nữa.
+          </span>
+        </div>
+        <div className="field">
+          <label style={{ fontWeight: 600 }}>Phiên khách</label>
+          <div>
+            <RevokeSessionsDialog albumId={album.id} onRevoked={() => toast("Đã đăng xuất toàn bộ khách")} />
+          </div>
+          <span className="text-sm">
+            Buộc mọi khách đang đăng nhập (kể cả Cô dâu & Chú rể) phải xác nhận lại — hữu ích nếu nghi ngờ ai đó đang truy cập trái phép.
+          </span>
         </div>
         <div className="modal-foot" style={{ justifyContent: "space-between" }}>
           <DeleteDialog albumId={album.id} onDeleted={onDeleted} />
@@ -970,6 +1021,102 @@ function SettingsTab({
         </div>
       </div>
     </div>
+  );
+}
+
+function RotateLinkDialog({
+  albumId,
+  onRotated,
+}: {
+  albumId: string;
+  onRotated: (linkToken: string) => void;
+}) {
+  const [rotating, setRotating] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  async function handleRotate() {
+    setRotating(true);
+    try {
+      const res = await api<{ linkToken: string }>(`/api/albums/${albumId}/rotate-link`, {
+        method: "POST",
+      });
+      onRotated(res.linkToken);
+      toast("Đã tạo link mới");
+      setOpen(false);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không thể đổi link");
+    } finally {
+      setRotating(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="secondary">Đổi link mới</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Đổi link Album?</DialogTitle>
+        </DialogHeader>
+        <p className="text-secondary">
+          Link cũ sẽ ngừng hoạt động ngay lập tức. Ảnh, lựa chọn và bình luận của khách vẫn được giữ nguyên — chỉ đường link truy cập thay đổi.
+        </p>
+        <DialogFooter>
+          <Button onClick={handleRotate} disabled={rotating}>
+            {rotating ? "Đang đổi..." : "Đổi link mới"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RevokeSessionsDialog({
+  albumId,
+  onRevoked,
+}: {
+  albumId: string;
+  onRevoked: () => void;
+}) {
+  const [revoking, setRevoking] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  async function handleRevoke() {
+    setRevoking(true);
+    try {
+      await api(`/api/albums/${albumId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ revokeGuestSessions: true }),
+      });
+      onRevoked();
+      setOpen(false);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không thể đăng xuất khách");
+    } finally {
+      setRevoking(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="secondary">Đăng xuất toàn bộ khách</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Đăng xuất toàn bộ khách?</DialogTitle>
+        </DialogHeader>
+        <p className="text-secondary">
+          Mọi khách đang đăng nhập album này (kể cả Cô dâu & Chú rể) sẽ phải xác nhận lại (mật khẩu hoặc tên + SĐT) ở lần truy cập tiếp theo. Ảnh, lựa chọn và bình luận đã có không bị ảnh hưởng.
+        </p>
+        <DialogFooter>
+          <Button onClick={handleRevoke} disabled={revoking}>
+            {revoking ? "Đang xử lý..." : "Đăng xuất toàn bộ khách"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

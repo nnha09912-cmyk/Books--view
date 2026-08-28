@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getGuestCustomer } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   _req: NextRequest,
@@ -9,6 +10,12 @@ export async function POST(
   const guest = await getGuestCustomer(params.linkToken);
   if (!guest) {
     return NextResponse.json({ error: { message: "Chưa có phiên khách" } }, { status: 401 });
+  }
+  if (!checkRateLimit(`submit:${guest.id}`, 5, 10 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: { message: "Bạn thao tác quá nhanh, thử lại sau ít phút nhé." } },
+      { status: 429 }
+    );
   }
 
   const [liked, starred] = await Promise.all([

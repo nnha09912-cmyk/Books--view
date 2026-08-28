@@ -5,8 +5,8 @@ import Image from "next/image";
 import { Bell } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandMark } from "@/components/brand-mark";
-import { pravatar } from "@/lib/mock-data";
 import { useStudio } from "@/lib/use-studio";
+import { DEFAULT_AVATAR } from "@/lib/studio-name";
 
 interface AppHeaderProps {
   studioName?: string;
@@ -24,7 +24,7 @@ function AvatarLink() {
     <Link href="/settings" title="Hồ sơ & cài đặt">
       <Image
         className="avatar"
-        src={studio?.logoUrl || pravatar(12, 72)}
+        src={studio?.logoUrl || DEFAULT_AVATAR}
         alt=""
         width={36}
         height={36}

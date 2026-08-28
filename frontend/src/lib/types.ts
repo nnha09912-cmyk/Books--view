@@ -44,6 +44,12 @@ export interface PublicAlbumInfo {
   requiresPassword: boolean;
   expiryDate: string | null;
   studioName: string;
+  downloadEnabled: boolean;
+  requiresDownloadPassword: boolean;
+  coverPhotoId: string | null;
+  coverPhotoUrl: string | null;
+  coverPosY: number;
+  eventDate: string | null;
 }
 
 export interface AlbumDetail {
@@ -55,10 +61,14 @@ export interface AlbumDetail {
   linkToken: string;
   photoCount: number;
   expiryDate: string | null;
+  eventDate: string | null;
   passwordProtected: boolean;
   createdAt: string;
   googleDriveFolderId: string | null;
   maxSelectionCount: number | null;
+  downloadEnabled: boolean;
+  downloadPasswordProtected: boolean;
+  downloadExpiryDate: string | null;
   photos: AlbumPhoto[];
   customers: AlbumCustomer[];
 }

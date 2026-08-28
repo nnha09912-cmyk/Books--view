@@ -22,7 +22,7 @@ export default function SignupPage() {
         method: "POST",
         body: JSON.stringify({
           name: form.get("name"),
-          studioName: form.get("studio"),
+          studioName: form.get("studio") || undefined,
           email: form.get("email"),
           phone: form.get("phone") || undefined,
           password: form.get("password"),
@@ -76,8 +76,8 @@ export default function SignupPage() {
             id="studio"
             name="studio"
             placeholder="Books View"
-            required
           />
+          <span className="hint">Không bắt buộc</span>
         </div>
         <div className="field">
           <label htmlFor="email2">Email</label>

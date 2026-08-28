@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hashPassword, signSession, SESSION_COOKIE } from "@/lib/auth";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   name: z.string().min(1),
-  studioName: z.string().min(1),
+  studioName: z.string().min(1).optional(),
   email: z.string().email(),
   password: z.string().min(8),
   phone: z.string().optional(),
@@ -22,6 +23,15 @@ function slugify(input: string) {
 }
 
 export async function POST(req: NextRequest) {
+  // Keeps this from being used to spam-create accounts or to enumerate
+  // registered emails via the 409 "already used" response.
+  if (!checkRateLimit(`signup:${clientIp(req)}`, 10, 10 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: { message: "Bạn thao tác quá nhanh, thử lại sau ít phút nhé." } },
+      { status: 429 }
+    );
+  }
+
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json(
@@ -29,7 +39,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { studioName, email, password, phone } = parsed.data;
+  const { name, studioName, email, password, phone } = parsed.data;
 
   const existing = await prisma.studio.findUnique({ where: { email } });
   if (existing) {
@@ -40,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   const passwordHash = await hashPassword(password);
-  const baseSlug = slugify(studioName) || "studio";
+  const baseSlug = slugify(studioName || name) || "studio";
   let slug = baseSlug;
   let n = 1;
   while (await prisma.studio.findUnique({ where: { slug } })) {
@@ -48,12 +58,20 @@ export async function POST(req: NextRequest) {
   }
 
   const studio = await prisma.studio.create({
-    data: { name: studioName, slug, email, passwordHash, phone },
+    data: {
+      name: studioName || null,
+      ownerName: name,
+      slug,
+      email,
+      passwordHash,
+      phone,
+      lastLoginAt: new Date(),
+    },
   });
 
-  const token = signSession({ studioId: studio.id });
+  const token = signSession({ studioId: studio.id, sessionVersion: studio.sessionVersion });
   const res = NextResponse.json(
-    { studio: { id: studio.id, name: studio.name, email: studio.email } },
+    { studio: { id: studio.id, name: studio.name, ownerName: studio.ownerName, email: studio.email } },
     { status: 201 }
   );
   res.cookies.set(SESSION_COOKIE, token, {

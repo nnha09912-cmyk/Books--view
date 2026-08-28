@@ -3,7 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
+import { Share2 } from "lucide-react";
 import { StatusMenu } from "@/components/status-menu";
+import { ShareAlbumDialog } from "@/components/share-album-dialog";
 import { picsum } from "@/lib/mock-data";
 import { api, ApiError } from "@/lib/api-client";
 import type { AlbumSummary } from "@/lib/types";
@@ -38,6 +40,25 @@ export function AlbumCard({
           height={360}
           unoptimized
         />
+        {/* Same click-guard as StatusMenu below — the whole card is a Link,
+            so opening Share must not also navigate into the album. */}
+        <div
+          className="thumb-share"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <ShareAlbumDialog
+            albumName={album.name}
+            linkToken={album.linkToken}
+            trigger={
+              <button type="button" className="thumb-share-btn" aria-label="Chia sẻ album">
+                <Share2 size={14} />
+              </button>
+            }
+          />
+        </div>
       </div>
       <div className="meta">
         <h3 style={{ fontSize: 15 }}>{album.name}</h3>

@@ -29,6 +29,6 @@ export async function findOrCreateOAuthStudio(email: string, name: string) {
 
   const passwordHash = await hashPassword(crypto.randomBytes(32).toString("hex"));
   return prisma.studio.create({
-    data: { name: name || email.split("@")[0], slug, email, passwordHash },
+    data: { ownerName: name || null, slug, email, passwordHash },
   });
 }

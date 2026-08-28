@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentStudio } from "@/lib/auth";
 import { extractDriveFolderId, importNewPhotosFromDrive } from "@/lib/google-drive";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -36,6 +37,12 @@ export async function POST(
   if (!album) {
     return NextResponse.json({ error: { message: "Không tìm thấy album" } }, { status: 404 });
   }
+  if (!checkRateLimit(`drive-sync:${studio.id}`, 10, 5 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: { message: "Bạn đồng bộ quá nhanh, thử lại sau ít phút nhé." } },
+      { status: 429 }
+    );
+  }
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
@@ -54,9 +61,10 @@ export async function POST(
     const result = await importNewPhotosFromDrive(album.id, folderId);
     return NextResponse.json(result);
   } catch (e) {
+    console.error("drive-import failed", e);
     return NextResponse.json(
-      { error: { message: String(e instanceof Error ? e.message : e) } },
-      { status: 400 }
+      { error: { message: "Không thể nhập ảnh từ Google Drive. Vui lòng thử lại." } },
+      { status: 500 }
     );
   }
 }

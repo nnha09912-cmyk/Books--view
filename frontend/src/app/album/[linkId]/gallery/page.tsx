@@ -17,15 +17,16 @@ import {
   Folder,
   Plus,
   Grid3x3,
-  Grid2x2,
+  ScanSearch,
   LayoutDashboard,
   RefreshCw,
   ChevronDown,
   X,
   ChevronLeft,
   ChevronRight,
-  ZoomIn,
-  ZoomOut,
+  User,
+  Phone,
+  CircleFadingArrowUp,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -92,16 +93,47 @@ export default function GalleryPage({
   const [lightboxId, setLightboxId] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
+  // Rendering every photo's <img> in the cover/folder pickers at once makes
+  // the browser decode hundreds of large thumbnails simultaneously, which
+  // has been observed to corrupt/tear tiles in Chromium — render in batches
+  // instead and let the guest reveal more on demand.
+  const PICKER_BATCH = 60;
+  const [coverVisibleCount, setCoverVisibleCount] = useState(PICKER_BATCH);
+  const [folderVisibleCount, setFolderVisibleCount] = useState(PICKER_BATCH);
+  const [thumbSize, setThumbSize] = useState(400);
   const [recOpen, setRecOpen] = useState(false);
   const [recCount, setRecCount] = useState(0);
-  // Comments are local-only (no backend persistence yet, matching Recommend)
-  // — tracked per-photo just to show a "commented" badge like Like/Star.
+  // recCount/commentedIds are session-local UI badges only (like the Recommend
+  // stat) — the comment text itself is persisted server-side, see postComment.
   const [commentedIds, setCommentedIds] = useState<Set<string>>(new Set());
   const [recText, setRecText] = useState("");
+  // Both hydrated from the persisted Album.coverPhotoId/coverPosY once the
+  // bootstrap effect's album-info fetch resolves — see saveCoverAdjust()
+  // for how a change gets written back (studio-only, IDOR-guarded).
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(null);
+  // Vertical focal point of the committed cover photo, as a 0-100 percent
+  // fed into object-position — same idea as Facebook's "drag to reposition"
+  // cover editor.
+  const [coverPosY, setCoverPosY] = useState(50);
+  // Set while the studio is repositioning a newly-picked cover photo —
+  // drives the hero banner into "adjusting" mode (drag overlay + Lưu/Hủy)
+  // instead of the normal display. Cleared on save or cancel.
+  const [adjustingCoverId, setAdjustingCoverId] = useState<string | null>(null);
+  const [adjustingPosY, setAdjustingPosY] = useState(50);
+  const coverDragRef = useRef<{ startY: number; startPos: number } | null>(null);
+  const coverFrameRef = useRef<HTMLDivElement>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const toastTimer = useRef<number | undefined>(undefined);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    function onScroll() {
+      setShowScrollTop(window.scrollY > 480);
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Gallery is browsable by anyone with no gate. The gate only appears as a
   // modal the first time someone tries to Like/Star/Submit — identifying
@@ -119,8 +151,23 @@ export default function GalleryPage({
   const pendingAction = useRef<
     | { kind: "like" | "star"; id: string }
     | { kind: "submit" }
+    | { kind: "comment"; id: string; text: string }
+    | { kind: "view" }
     | null
   >(null);
+
+  // Download progress — a small corner widget, never a blocking modal, per
+  // explicit design: downloading must not cover the gallery above it.
+  // Download itself requires no guest identity — only Album Settings'
+  // "Cho phép tải ảnh" + its own optional password gate it.
+  const [downloadTask, setDownloadTask] = useState<
+    { label: string; status: "loading" | "done" | "error" } | null
+  >(null);
+  const [downloadGateOpen, setDownloadGateOpen] = useState(false);
+  const [downloadGateError, setDownloadGateError] = useState("");
+  const [downloadGateSubmitting, setDownloadGateSubmitting] = useState(false);
+  const [downloadPasswordInput, setDownloadPasswordInput] = useState("");
+  const pendingDownloadIds = useRef<string[] | null>(null);
 
   async function loadPhotos() {
     const photosRes = await api<{ data: AlbumPhoto[] }>(
@@ -128,7 +175,10 @@ export default function GalleryPage({
     );
     setPhotos(photosRes.data);
     setActiveId(photosRes.data[0]?.id ?? null);
-    setCoverPhotoId(photosRes.data[2]?.id ?? photosRes.data[0]?.id ?? null);
+    // Only fall back to a default pick when no cover has ever been saved
+    // for this album — a real persisted choice (hydrated from album info
+    // just before this runs) must never be silently overridden.
+    setCoverPhotoId((prev) => prev ?? photosRes.data[2]?.id ?? photosRes.data[0]?.id ?? null);
   }
 
   useEffect(() => {
@@ -139,11 +189,13 @@ export default function GalleryPage({
       );
       if (cancelled) return;
       setAlbum(info);
-      await loadPhotos();
+      setCoverPhotoId(info.coverPhotoId);
+      setCoverPosY(info.coverPosY);
 
       // Silent probe: succeeds immediately if this browser already has a
       // valid guest session for this album — no modal needed. Failure just
-      // means "not identified yet", which is fine until they try to select.
+      // means "not identified yet".
+      let probeOk = false;
       try {
         const res = await api<{ customerId: string; isPrimary: boolean }>(
           `/api/public/album/${params.linkId}/customers`,
@@ -152,9 +204,20 @@ export default function GalleryPage({
         if (!cancelled) {
           identifiedRef.current = true;
           setCanStar(res.isPrimary);
+          probeOk = true;
         }
       } catch {
-        /* not identified yet — gate opens lazily on first selection */
+        /* not identified yet */
+      }
+      if (cancelled) return;
+
+      if (info.requiresPassword && !probeOk) {
+        // The API refuses to hand out photo URLs for a password-protected
+        // album until the guest has identified — open the gate right away
+        // instead of calling loadPhotos() into a guaranteed 401.
+        requireIdentity({ kind: "view" });
+      } else {
+        await loadPhotos();
       }
     }
     bootstrap();
@@ -164,7 +227,13 @@ export default function GalleryPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.linkId]);
 
-  function requireIdentity(action: { kind: "like" | "star"; id: string } | { kind: "submit" }) {
+  function requireIdentity(
+    action:
+      | { kind: "like" | "star"; id: string }
+      | { kind: "submit" }
+      | { kind: "comment"; id: string; text: string }
+      | { kind: "view" }
+  ) {
     pendingAction.current = action;
     setGateError("");
     setGateOpen(true);
@@ -188,6 +257,8 @@ export default function GalleryPage({
         if (res.isPrimary) await toggleStar(action.id);
         else toast("Chỉ Cô dâu & Chú rể mới đánh dấu Sao ⭐ được — bạn có thể dùng ♥ Thích nhé.");
       } else if (action?.kind === "submit") await handleFinalSubmit();
+      else if (action?.kind === "comment") await postComment(action.id, action.text);
+      else if (action?.kind === "view") await loadPhotos();
     } catch (e) {
       setGateError(e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé.");
     } finally {
@@ -379,6 +450,7 @@ export default function GalleryPage({
     setFolderNameInput("");
     setFolderSelectedIds(new Set());
     setFolderLastClickedIndex(null);
+    setFolderVisibleCount(PICKER_BATCH);
     setFolderModalOpen(true);
   }
 
@@ -423,6 +495,10 @@ export default function GalleryPage({
     );
   }
   function share() {
+    // Always surface the QR alongside the link — someone sharing in person
+    // (or over a call) needs both, not just whichever the native share
+    // sheet or clipboard happens to carry.
+    setQrOpen(true);
     if (navigator.share) {
       navigator.share({ title: document.title, url: location.href }).catch(() => {});
     } else {
@@ -431,23 +507,149 @@ export default function GalleryPage({
       );
     }
   }
+  // Download is a bulk action driven by the same Like/Star toggle filters
+  // already used for the grid: only Like active -> liked photos, only Star
+  // active -> starred, both -> the union of the two, neither -> everything.
   function download() {
-    const photo = photos.find((p) => p.id === activeId) ?? photos[0];
-    if (!photo) return;
-    const a = document.createElement("a");
-    a.href = photo.originalUrl ?? photo.previewUrl ?? picsum(photo.id, 1200, 1200);
-    a.download = photo.filename;
-    a.target = "_blank";
-    a.click();
-  }
-  function submitRecommend() {
-    if (recText.trim()) {
-      setRecCount((c) => c + 1);
-      if (activeId) setCommentedIds((prev) => new Set(prev).add(activeId));
-      toast("Đã gửi nhận xét");
+    if (!album?.downloadEnabled) return;
+    const ids = (
+      anyStatFilter
+        ? photos.filter((p) => (filterLike && p.liked) || (filterStar && p.starred))
+        : photos
+    ).map((p) => p.id);
+    if (ids.length === 0) {
+      toast("Không có ảnh nào để tải");
+      return;
     }
-    setRecOpen(false);
-    setRecText("");
+    const label =
+      filterLike && filterStar
+        ? `${ids.length} ảnh đã thích/sao`
+        : filterLike
+        ? `${ids.length} ảnh đã thích`
+        : filterStar
+        ? `${ids.length} ảnh đã sao`
+        : `${ids.length} ảnh`;
+    startDownload(ids, label);
+  }
+
+  // Streams the gated, server-resized ZIP — never raw originals — updating
+  // a small corner widget instead of blocking the gallery. Only extra gate
+  // beyond Album Settings' own toggle is "needs the Download password";
+  // Download itself needs no guest identity.
+  async function startDownload(photoIds: string[], label: string) {
+    setDownloadTask({ label, status: "loading" });
+    try {
+      const res = await fetch(`/api/public/album/${params.linkId}/download-zip`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoIds }),
+      });
+      if (!res.ok) {
+        let code = "";
+        let message = "";
+        try {
+          const body = await res.json();
+          code = body?.error?.code ?? "";
+          message = body?.error?.message ?? "";
+        } catch {
+          /* ignore */
+        }
+        setDownloadTask(null);
+        if (res.status === 401 && code === "DOWNLOAD_LOCKED") {
+          pendingDownloadIds.current = photoIds;
+          setDownloadGateError("");
+          setDownloadPasswordInput("");
+          setDownloadGateOpen(true);
+          return;
+        }
+        toast(message || "Không thể tải ảnh, thử lại nhé");
+        return;
+      }
+
+      // Total size of a ZIP built on the fly isn't known ahead of time, so
+      // this only ever shows an indeterminate "in progress" state, not %.
+      const chunks: BlobPart[] = [];
+      const reader = res.body?.getReader();
+      if (reader) {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+      } else {
+        chunks.push(await res.blob());
+      }
+
+      const blob = new Blob(chunks, { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const kind = filterLike && filterStar ? "like-star" : filterLike ? "like" : filterStar ? "star" : "all";
+      a.download = `${(album?.name ?? "album").replace(/[^\w.-]+/g, "_")}-${kind}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setDownloadTask({ label, status: "done" });
+      setTimeout(() => setDownloadTask(null), 2000);
+    } catch {
+      setDownloadTask({ label, status: "error" });
+      toast("Không thể tải ảnh, thử lại nhé");
+      setTimeout(() => setDownloadTask(null), 3000);
+    }
+  }
+
+  async function submitDownloadGate() {
+    setDownloadGateSubmitting(true);
+    setDownloadGateError("");
+    try {
+      await api(`/api/public/album/${params.linkId}/download-auth`, {
+        method: "POST",
+        body: JSON.stringify({ password: downloadPasswordInput }),
+      });
+      setDownloadGateOpen(false);
+      setDownloadPasswordInput("");
+      const ids = pendingDownloadIds.current;
+      pendingDownloadIds.current = null;
+      if (ids) startDownload(ids, `${ids.length} ảnh`);
+    } catch (e) {
+      setDownloadGateError(e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé.");
+    } finally {
+      setDownloadGateSubmitting(false);
+    }
+  }
+  async function postComment(id: string, text: string) {
+    try {
+      await api(`/api/public/album/${params.linkId}/photos/${id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      });
+      setRecCount((c) => c + 1);
+      setCommentedIds((prev) => new Set(prev).add(id));
+      toast("Đã gửi nhận xét");
+      setRecOpen(false);
+      setRecText("");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        identifiedRef.current = false;
+        requireIdentity({ kind: "comment", id, text });
+      } else {
+        toast(e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé");
+      }
+    }
+  }
+
+  function submitRecommend() {
+    const text = recText.trim();
+    if (!text || !activeId) {
+      setRecOpen(false);
+      setRecText("");
+      return;
+    }
+    if (!identifiedRef.current) {
+      requireIdentity({ kind: "comment", id: activeId, text });
+      return;
+    }
+    postComment(activeId, text);
   }
 
   async function handleFinalSubmit() {
@@ -471,7 +673,53 @@ export default function GalleryPage({
   }
 
   const carouselPhotos = sortedPhotos;
-  const coverPhoto = photos.find((p) => p.id === coverPhotoId) ?? photos[0];
+  const isAdjustingCover = adjustingCoverId !== null;
+  const displayCoverId = adjustingCoverId ?? coverPhotoId;
+  const displayCoverPosY = isAdjustingCover ? adjustingPosY : coverPosY;
+  const coverPhoto = photos.find((p) => p.id === displayCoverId) ?? photos[0];
+
+  function startCoverDrag(clientY: number) {
+    coverDragRef.current = { startY: clientY, startPos: adjustingPosY };
+  }
+  function moveCoverDrag(clientY: number) {
+    const drag = coverDragRef.current;
+    const frame = coverFrameRef.current;
+    if (!drag || !frame) return;
+    const height = frame.getBoundingClientRect().height || 1;
+    const deltaY = clientY - drag.startY;
+    const next = Math.min(100, Math.max(0, drag.startPos - (deltaY / height) * 100));
+    setAdjustingPosY(next);
+  }
+  function endCoverDrag() {
+    coverDragRef.current = null;
+  }
+  async function saveCoverAdjust() {
+    if (!adjustingCoverId) return;
+    const posY = Math.round(adjustingPosY);
+    try {
+      await api(`/api/public/album/${params.linkId}/cover`, {
+        method: "PATCH",
+        body: JSON.stringify({ coverPhotoId: adjustingCoverId, coverPosY: posY }),
+      });
+      setCoverPhotoId(adjustingCoverId);
+      setCoverPosY(posY);
+      setAdjustingCoverId(null);
+      toast("Đã cập nhật ảnh bìa");
+    } catch (err) {
+      // Only the studio that owns this album can persist a cover change —
+      // anyone else opening this same public Gallery link (a real guest,
+      // or the studio not currently logged in) gets refused here even
+      // though the button itself is visible to everyone.
+      toast(
+        err instanceof ApiError
+          ? err.message
+          : "Không thể đổi ảnh bìa — bạn cần đăng nhập bằng tài khoản studio."
+      );
+    }
+  }
+  function cancelCoverAdjust() {
+    setAdjustingCoverId(null);
+  }
 
   function carouselStep(dir: 1 | -1) {
     if (carouselPhotos.length === 0) return;
@@ -565,37 +813,106 @@ export default function GalleryPage({
       </header>
 
       {/* Cover */}
-      <div className="gh-cover">
+      <div className="gh-cover" ref={coverFrameRef}>
         <Image
           src={coverPhoto?.previewUrl ?? picsum(`hero-${params.linkId}`, 1600, 1000)}
           alt="Cover"
           fill
           unoptimized
-          style={{ objectFit: "cover" }}
+          draggable={false}
+          style={{
+            objectFit: "cover",
+            objectPosition: `50% ${displayCoverPosY}%`,
+            cursor: isAdjustingCover ? "grab" : undefined,
+            touchAction: isAdjustingCover ? "none" : undefined,
+          }}
+          onMouseDown={
+            isAdjustingCover
+              ? (e) => {
+                  e.preventDefault();
+                  startCoverDrag(e.clientY);
+                  const onMove = (ev: MouseEvent) => moveCoverDrag(ev.clientY);
+                  const onUp = () => {
+                    endCoverDrag();
+                    window.removeEventListener("mousemove", onMove);
+                    window.removeEventListener("mouseup", onUp);
+                  };
+                  window.addEventListener("mousemove", onMove);
+                  window.addEventListener("mouseup", onUp);
+                }
+              : undefined
+          }
+          onTouchStart={
+            isAdjustingCover
+              ? (e) => {
+                  startCoverDrag(e.touches[0].clientY);
+                  const onMove = (ev: TouchEvent) => moveCoverDrag(ev.touches[0].clientY);
+                  const onEnd = () => {
+                    endCoverDrag();
+                    window.removeEventListener("touchmove", onMove);
+                    window.removeEventListener("touchend", onEnd);
+                  };
+                  window.addEventListener("touchmove", onMove);
+                  window.addEventListener("touchend", onEnd);
+                }
+              : undefined
+          }
         />
         <div className="gh-cover-top">
           <Link href={`/album/${params.linkId}`} className="gh-back">
             <ChevronLeft size={15} />
             Back
           </Link>
-          <button className="gh-lang" type="button">
-            EN
-          </button>
         </div>
-        <div className="gh-cover-bottom">
-          <div className="gh-cover-title">
-            <h1>{album.name}</h1>
-            <p>{album.name}</p>
+        {isAdjustingCover ? (
+          <>
+            <div className="gh-cover-drag-hint">Kéo ảnh để chỉnh vị trí đẹp nhất</div>
+            <div className="gh-cover-bottom">
+              <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+                <Button
+                  onClick={saveCoverAdjust}
+                  style={{
+                    marginTop: 0,
+                    width: "auto",
+                    height: 40,
+                    padding: "0 16px",
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,.3)",
+                    color: "#fff",
+                  }}
+                >
+                  Lưu Cover
+                </Button>
+                <button
+                  className="gh-modal-close"
+                  type="button"
+                  style={{ marginTop: 0, height: 40, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  onClick={cancelCoverAdjust}
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="gh-cover-bottom">
+            <div className="gh-cover-title">
+              <h1>{album.name}</h1>
+              <p>{album.name}</p>
+            </div>
+            <button
+              className="gh-change-cover"
+              type="button"
+              onClick={() => {
+                setCoverVisibleCount(PICKER_BATCH);
+                setCoverOpen(true);
+              }}
+            >
+              <Grid3x3 size={15} />
+              Change Cover
+            </button>
           </div>
-          <button
-            className="gh-change-cover"
-            type="button"
-            onClick={() => setCoverOpen(true)}
-          >
-            <Grid3x3 size={15} />
-            Change Cover
-          </button>
-        </div>
+        )}
       </div>
 
       {/* Stats / actions */}
@@ -654,10 +971,12 @@ export default function GalleryPage({
             <Share2 size={15} />
             Share
           </button>
-          <button className="gh-btn" type="button" onClick={download}>
-            <Download size={15} />
-            Download
-          </button>
+          {album?.downloadEnabled && (
+            <button className="gh-btn" type="button" onClick={download}>
+              <Download size={15} />
+              Download
+            </button>
+          )}
         </div>
       </div>
 
@@ -701,18 +1020,6 @@ export default function GalleryPage({
             style={{ color: "rgba(255,255,255,.7)" }}
             title="Cỡ ảnh"
           >
-            <button
-              type="button"
-              className="gh-view-btn"
-              onClick={() =>
-                setGridSize(Math.min(6, (gridSize ?? (view === "masonry" ? 4 : 5)) + 1))
-              }
-              title="Thu nhỏ ảnh"
-              aria-label="Thu nhỏ ảnh"
-            >
-              <ZoomOut size={14} />
-            </button>
-            <Grid3x3 size={12} />
             <input
               type="range"
               min={2}
@@ -720,21 +1027,10 @@ export default function GalleryPage({
               step={1}
               value={8 - (gridSize ?? (view === "masonry" ? 4 : 5))}
               onChange={(e) => setGridSize(8 - Number(e.target.value))}
-              style={{ width: 90 }}
+              style={{ width: 90, accentColor: "#fff" }}
               aria-label="Cỡ ảnh — kéo sang phải để phóng to"
             />
-            <Grid2x2 size={14} />
-            <button
-              type="button"
-              className="gh-view-btn"
-              onClick={() =>
-                setGridSize(Math.max(2, (gridSize ?? (view === "masonry" ? 4 : 5)) - 1))
-              }
-              title="Phóng to ảnh"
-              aria-label="Phóng to ảnh"
-            >
-              <ZoomIn size={14} />
-            </button>
+            <ScanSearch size={16} />
           </div>
         )}
         <div className="gh-view-switch">
@@ -968,7 +1264,7 @@ export default function GalleryPage({
 
       {/* Grid / Masonry */}
       {view !== "carousel" && (
-        <div className="container" style={{ paddingTop: 24 }}>
+        <div style={{ paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
           <div
             className={`gallery-grid gh-view-${view}`}
             style={
@@ -1061,11 +1357,21 @@ export default function GalleryPage({
         </div>
       )}
 
+      <button
+        type="button"
+        className={`gh-scroll-top${showScrollTop ? " visible" : ""}`}
+        aria-label="Lên đầu trang"
+        title="Lên đầu trang"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      >
+        <CircleFadingArrowUp size={22} />
+      </button>
+
       <div className="sticky-bar">
-        <span className="text-sm">
+        <span className="text-sm" style={{ fontWeight: 600 }}>
           {likeCount} ảnh ♥ thích · {starCount} ảnh ⭐ sao
         </span>
-        <Button onClick={handleFinalSubmit} disabled={submitting}>
+        <Button onClick={handleFinalSubmit} disabled={submitting} className="gh-submit-btn">
           {submitting ? "Đang gửi..." : "Hoàn tất & Chọn ảnh"}
         </Button>
       </div>
@@ -1107,26 +1413,36 @@ export default function GalleryPage({
           <div className="gh-modal" style={{ maxWidth: 420 }}>
             <h3>Chọn ảnh làm Cover</h3>
             <div className="gh-cover-picker">
-              {photos.map((photo) => (
+              {photos.slice(0, coverVisibleCount).map((photo) => (
                 <div
                   key={photo.id}
                   className={`gh-cover-pick-item${coverPhotoId === photo.id ? " selected" : ""}`}
                   onClick={() => {
-                    setCoverPhotoId(photo.id);
+                    setAdjustingPosY(photo.id === coverPhotoId ? coverPosY : 50);
+                    setAdjustingCoverId(photo.id);
                     setCoverOpen(false);
-                    toast("Đã cập nhật Cover (demo)");
                   }}
                 >
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={photo.thumbnailUrl ?? picsum(photo.id, 200, 200)}
                     alt=""
-                    width={100}
-                    height={100}
-                    unoptimized
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               ))}
             </div>
+            {coverVisibleCount < photos.length && (
+              <button
+                type="button"
+                className="gh-modal-close"
+                style={{ marginTop: 8 }}
+                onClick={() => setCoverVisibleCount((n) => n + PICKER_BATCH)}
+              >
+                Xem thêm ảnh ({photos.length - coverVisibleCount})
+              </button>
+            )}
             <button
               className="gh-modal-close"
               type="button"
@@ -1170,22 +1486,56 @@ export default function GalleryPage({
               Chọn ảnh cho nhóm này — Click chọn 1 · Shift+Click chọn khoảng đầu-cuối ·
               Cmd/Ctrl+Click chọn rời từng ảnh. Đã chọn: {folderSelectedIds.size}
             </p>
-            <div className="gh-cover-picker" style={{ flex: 1, maxHeight: "none", overflow: "auto" }}>
-              {sortedPhotos.map((photo, i) => (
-                <div
-                  key={photo.id}
-                  className={`gh-cover-pick-item${folderSelectedIds.has(photo.id) ? " selected" : ""}`}
-                  onClick={(e) => handleFolderPhotoClick(e, i, photo.id)}
+            <div
+              className="flex items-center gap-sm"
+              style={{ color: "rgba(255,255,255,.7)" }}
+            >
+              <label htmlFor="thumb-size" className="text-xs">Cỡ ảnh</label>
+              <input
+                id="thumb-size"
+                type="range"
+                min={160}
+                max={600}
+                step={20}
+                value={thumbSize}
+                onChange={(e) => setThumbSize(Number(e.target.value))}
+                style={{ width: 140, accentColor: "#fff" }}
+                aria-label="Cỡ thumbnail — kéo sang phải để phóng to"
+              />
+              <span className="text-xs">{thumbSize}px</span>
+            </div>
+            <div
+              className="gh-cover-picker"
+              style={{ flex: 1, maxHeight: "none", overflow: "auto", ["--thumb-size" as string]: `${thumbSize}px` }}
+            >
+              {sortedPhotos.map((photo, i) => {
+                if (i >= folderVisibleCount) return null;
+                return (
+                  <div
+                    key={photo.id}
+                    className={`gh-cover-pick-item${folderSelectedIds.has(photo.id) ? " selected" : ""}`}
+                    onClick={(e) => handleFolderPhotoClick(e, i, photo.id)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.thumbnailUrl ?? picsum(photo.id, 200, 200)}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                );
+              })}
+              {folderVisibleCount < sortedPhotos.length && (
+                <button
+                  type="button"
+                  className="gh-modal-close"
+                  style={{ gridColumn: "1 / -1" }}
+                  onClick={() => setFolderVisibleCount((n) => n + PICKER_BATCH)}
                 >
-                  <Image
-                    src={photo.thumbnailUrl ?? picsum(photo.id, 200, 200)}
-                    alt=""
-                    width={100}
-                    height={100}
-                    unoptimized
-                  />
-                </div>
-              ))}
+                  Xem thêm ảnh ({sortedPhotos.length - folderVisibleCount})
+                </button>
+              )}
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
               <Button
@@ -1291,6 +1641,97 @@ export default function GalleryPage({
         />
       )}
 
+      {/* Download password modal — separate from the identify gate, gates
+          only Album Settings' optional per-album Download password. */}
+      {downloadGateOpen && (
+        <div
+          className="gh-modal-backdrop open"
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return;
+            pendingDownloadIds.current = null;
+            setDownloadGateOpen(false);
+          }}
+        >
+          <div className="gh-modal">
+            <h3>Nhập mật khẩu tải ảnh</h3>
+            <input
+              className="input"
+              type="text"
+              autoFocus
+              placeholder="Mật khẩu tải ảnh"
+              value={downloadPasswordInput}
+              onChange={(e) => setDownloadPasswordInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitDownloadGate()}
+              style={{ width: "100%" }}
+            />
+            {downloadGateError && (
+              <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>{downloadGateError}</p>
+            )}
+            <div
+              style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "center" }}
+            >
+              <button
+                className="gh-modal-close"
+                type="button"
+                onClick={submitDownloadGate}
+                disabled={downloadGateSubmitting || !downloadPasswordInput.trim()}
+                style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#1a1a1a" }}
+              >
+                {downloadGateSubmitting ? "Đang kiểm tra..." : "Xác nhận"}
+              </button>
+              <button
+                className="gh-modal-close"
+                type="button"
+                onClick={() => {
+                  pendingDownloadIds.current = null;
+                  setDownloadGateOpen(false);
+                }}
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download progress — a small corner widget on purpose: downloading
+          must never block or cover the gallery above it. */}
+      {downloadTask && (
+        <div
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: 16,
+            zIndex: 9999,
+            background: "rgba(26,26,26,.95)",
+            color: "#fff",
+            borderRadius: 10,
+            padding: "10px 14px",
+            minWidth: 220,
+            boxShadow: "0 4px 20px rgba(0,0,0,.35)",
+            fontSize: 12,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {downloadTask.status === "loading" ? (
+              <RefreshCw size={14} className="animate-spin" />
+            ) : (
+              <Download size={14} />
+            )}
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {downloadTask.status === "done"
+                ? "Đã tải xong"
+                : downloadTask.status === "error"
+                ? "Tải ảnh thất bại"
+                : `Đang chuẩn bị ${downloadTask.label}...`}
+            </span>
+          </div>
+        </div>
+      )}
+
       {toastMsg && <div className="gh-toast show">{toastMsg}</div>}
 
       {/* Lightbox */}
@@ -1390,12 +1831,13 @@ function IdentifyGate({
 
   return (
     <div
-      className="gh-modal-backdrop open"
+      className="gh-modal-backdrop gh-gate-backdrop open"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="gh-modal" style={{ maxWidth: 380 }}>
+      <div className="gh-modal gh-gate-modal" style={{ maxWidth: 380 }}>
+        <Heart className="gh-gate-heart" size={30} strokeWidth={1.5} />
         <h3>{album.name}</h3>
-        <p className="text-secondary text-sm mb-md">
+        <p className="gh-gate-subtitle">
           Xác nhận để lưu lựa chọn ảnh của riêng bạn.
         </p>
         {error && (
@@ -1408,67 +1850,101 @@ function IdentifyGate({
           <>
             <form
               onSubmit={handlePasswordSubmit}
-              style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "left" }}
+              style={{ display: "flex", flexDirection: "column", gap: 7, textAlign: "left" }}
             >
               <div className="field">
                 <label htmlFor="gate-password">Mật khẩu (dành cho Cô dâu &amp; Chú rể)</label>
                 <input
                   id="gate-password"
                   className="input"
-                  type="password"
-                  placeholder="••••••••"
+                  type="text"
+                  placeholder="Mật khẩu"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoFocus
                   required
                 />
               </div>
-              <Button type="submit" size="lg" disabled={submitting}>
+              <Button
+                type="submit"
+                size="lg"
+                disabled={submitting}
+                style={{
+                  height: 41,
+                  marginTop: 3,
+                  borderRadius: 10,
+                  border: "none",
+                  background: "linear-gradient(90deg, #B77A32, #DDA85D)",
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
                 {submitting ? "Đang xử lý..." : "Xác nhận mật khẩu"}
               </Button>
             </form>
-            <div className="text-sm text-secondary" style={{ textAlign: "center", margin: "16px 0" }}>
-              — hoặc —
-            </div>
+            <div className="gh-gate-divider">hoặc</div>
           </>
         )}
 
         <form
           onSubmit={handleLoginSubmit}
-          style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "left" }}
+          style={{ display: "flex", flexDirection: "column", gap: 7, textAlign: "left" }}
         >
           <div className="field">
             <label htmlFor="gate-name">Tên đăng nhập</label>
-            <input
-              id="gate-name"
-              className="input"
-              placeholder="Tên của bạn"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus={!album.requiresPassword}
-              required
-            />
+            <div className="gh-gate-input-wrap">
+              <User size={13} />
+              <input
+                id="gate-name"
+                className="input"
+                placeholder="Tên của bạn"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus={!album.requiresPassword}
+                required
+              />
+            </div>
           </div>
           <div className="field">
-            <label htmlFor="gate-phone">Mật khẩu</label>
-            <input
-              id="gate-phone"
-              className="input"
-              type="tel"
-              placeholder="Số điện thoại của bạn"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
+            <label htmlFor="gate-phone">Số điện thoại</label>
+            <div className="gh-gate-input-wrap">
+              <Phone size={13} />
+              <input
+                id="gate-phone"
+                className="input"
+                type="tel"
+                placeholder="Số điện thoại của bạn"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
           </div>
-          <Button type="submit" size="lg" disabled={submitting}>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={submitting}
+            style={{
+              height: 41,
+              marginTop: 3,
+              borderRadius: 10,
+              background: "transparent",
+              border: "1px solid #C89445",
+              color: "#DDA85D",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
             {submitting ? "Đang xử lý..." : "Đăng nhập"}
           </Button>
         </form>
 
-        <button className="gh-modal-close" type="button" onClick={onClose} style={{ marginTop: 12 }}>
+        <button className="gh-modal-close gh-gate-close-btn" type="button" onClick={onClose}>
           Đóng
         </button>
+
+        <p className="gh-gate-security">🔒 Thông tin của bạn được bảo mật</p>
       </div>
     </div>
   );

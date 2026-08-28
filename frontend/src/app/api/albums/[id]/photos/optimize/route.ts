@@ -73,7 +73,8 @@ export async function POST(
       });
       optimized++;
     } catch (e) {
-      errors.push(`${photo.filename}: ${String(e instanceof Error ? e.message : e)}`);
+      console.error(`optimize failed for ${photo.filename}`, e);
+      errors.push(`${photo.filename}: Không thể xử lý ảnh này`);
     }
   }
 

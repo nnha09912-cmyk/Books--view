@@ -36,9 +36,28 @@ export function driveThumbnailUrl(thumbnailLink: string, size = 1600): string {
 
 /** Direct download link for a Drive file — used as-is (no bytes touch our
  * server) so pasting a Drive folder link stays instant regardless of album
- * size, matching photo.maclife.vn's approach. */
+ * size, matching photo.maclife.vn's approach. Kept only as the `originalUrl`
+ * fallback for on-screen display; the gated guest Download endpoint fetches
+ * real bytes via fetchDriveFileBytes below instead of ever handing this URL
+ * to a guest. */
 export function driveDownloadUrl(fileId: string): string {
   return `https://drive.google.com/uc?export=download&id=${fileId}`;
+}
+
+/** Fetches a Drive file's actual bytes server-side — only called from the
+ * gated Download endpoint, which resizes the result before it ever reaches
+ * a guest. Never used for the gallery/import path, which deliberately never
+ * touches file bytes (see module comment) to keep import instant. */
+export async function fetchDriveFileBytes(fileId: string): Promise<Buffer> {
+  const key = requireApiKey();
+  const url = new URL(`${DRIVE_API}/files/${fileId}`);
+  url.searchParams.set("alt", "media");
+  url.searchParams.set("key", key);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error(`Không tải được ảnh từ Google Drive (status ${res.status}).`);
+  }
+  return Buffer.from(await res.arrayBuffer());
 }
 
 /** Accepts a full Drive folder share link or a bare folder ID. */
@@ -89,9 +108,16 @@ export async function importNewPhotosFromDrive(
 
   const existing = await prisma.photo.findMany({
     where: { albumId },
-    select: { filename: true },
+    select: { filename: true, googleDriveId: true },
   });
   const existingNames = new Set(existing.map((p) => p.filename));
+  // Drive file ID is the reliable identity — a filename can be reused (or a
+  // file renamed) without it being a different photo. Older rows imported
+  // before this field was populated fall back to filename matching so they
+  // still count as "already have it" and don't get re-added as duplicates.
+  const existingDriveIds = new Set(
+    existing.map((p) => p.googleDriveId).filter((id): id is string => !!id)
+  );
 
   let added = 0;
   let skipped = 0;
@@ -100,7 +126,7 @@ export async function importNewPhotosFromDrive(
   for (const file of driveFiles) {
     const filename = sanitizeDriveFilename(file.name);
     if (!filename) continue;
-    if (existingNames.has(filename)) {
+    if (existingDriveIds.has(file.id) || existingNames.has(filename)) {
       skipped++;
       continue;
     }
@@ -121,6 +147,7 @@ export async function importNewPhotosFromDrive(
         },
       });
       existingNames.add(filename);
+      existingDriveIds.add(file.id);
       added++;
     } catch (e) {
       errors.push(`${filename}: ${String(e instanceof Error ? e.message : e)}`);

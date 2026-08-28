@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { pravatar } from "@/lib/mock-data";
 import { useStudio } from "@/lib/use-studio";
+import { DEFAULT_AVATAR } from "@/lib/studio-name";
 import { api, ApiError } from "@/lib/api-client";
 
 function ProfileTab() {
@@ -23,9 +23,8 @@ function ProfileTab() {
   const [saving, setSaving] = useState(false);
 
   const [logoUrl, setLogoUrl] = useState("");
-  const [editingAvatar, setEditingAvatar] = useState(false);
-  const [avatarInput, setAvatarInput] = useState("");
   const [savingAvatar, setSavingAvatar] = useState(false);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
 
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -37,7 +36,7 @@ function ProfileTab() {
     if (!studio) return;
     setPhone(studio.phone ?? "");
     setDescription(studio.description ?? "");
-    setStudioName(studio.name);
+    setStudioName(studio.name ?? "");
     setLogoUrl(studio.logoUrl ?? "");
   }, [studio]);
 
@@ -58,26 +57,25 @@ function ProfileTab() {
     }
   }
 
-  async function handleChangeAvatar() {
-    let url: URL;
-    try {
-      url = new URL(avatarInput.trim());
-    } catch {
-      toast("Link ảnh không hợp lệ");
-      return;
-    }
+  async function handleAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
     setSavingAvatar(true);
     try {
-      await api("/api/auth/me", {
-        method: "PATCH",
-        body: JSON.stringify({ logoUrl: url.toString() }),
+      const form = new FormData();
+      form.append("avatar", file);
+      const res = await fetch("/api/auth/avatar", {
+        method: "POST",
+        body: form,
+        credentials: "include",
       });
-      setLogoUrl(url.toString());
-      setEditingAvatar(false);
-      setAvatarInput("");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message ?? "Không thể đổi ảnh đại diện");
+      setLogoUrl(data.logoUrl);
       toast("Đã đổi ảnh đại diện");
     } catch (err) {
-      toast(err instanceof ApiError ? err.message : "Không thể đổi ảnh đại diện");
+      toast(err instanceof Error ? err.message : "Không thể đổi ảnh đại diện");
     } finally {
       setSavingAvatar(false);
     }
@@ -126,44 +124,27 @@ function ProfileTab() {
           <Image
             className="avatar"
             style={{ width: 64, height: 64 }}
-            src={logoUrl || pravatar(12, 128)}
+            src={logoUrl || DEFAULT_AVATAR}
             alt=""
             width={64}
             height={64}
             unoptimized
           />
-          {!editingAvatar ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setAvatarInput(logoUrl);
-                setEditingAvatar(true);
-              }}
-            >
-              Đổi ảnh đại diện
-            </Button>
-          ) : (
-            <div style={{ display: "flex", gap: 8, flex: 1 }}>
-              <input
-                className="input"
-                style={{ flex: 1 }}
-                value={avatarInput}
-                onChange={(e) => setAvatarInput(e.target.value)}
-                placeholder="Dán link ảnh (https://...)"
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setEditingAvatar(false)}
-              >
-                Huỷ
-              </Button>
-              <Button size="sm" onClick={handleChangeAvatar} disabled={savingAvatar}>
-                {savingAvatar ? "Đang lưu..." : "Lưu"}
-              </Button>
-            </div>
-          )}
+          <input
+            ref={avatarFileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            style={{ display: "none" }}
+            onChange={handleAvatarFileChange}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => avatarFileRef.current?.click()}
+            disabled={savingAvatar}
+          >
+            {savingAvatar ? "Đang tải lên..." : "Đổi ảnh đại diện"}
+          </Button>
         </div>
         <div className="field">
           <label>Tên studio</label>

@@ -13,7 +13,13 @@ datasource db {
 
 model Studio {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String
+  /// Studio's own business/display name — optional, since not everyone
+  /// using Books View runs a studio. Greeting/display logic falls back to
+  /// ownerName, then email — see lib/studio-name.ts.
+  name             String?
+  /// The account holder's personal full name ("Họ tên"), always collected
+  /// at signup regardless of whether they gave a studio name.
+  ownerName        String?
   slug             String   @unique
   email            String   @unique
   passwordHash     String
@@ -24,13 +30,67 @@ model Studio {
   apiKey           String?  @unique
   isActive         Boolean  @default(true)
   googleDriveToken Json?
+  /// "USER" (regular Studio, the default) or "ADMIN" (System Owner —
+  /// platform-wide oversight). Never settable by the client; only ever
+  /// flipped by a direct database update, never through any API — see
+  /// the System Owner area's own design notes.
+  role             String   @default("USER")
+  lastLoginAt      DateTime?
+  /// Brute-force lockout — tracked in the DB (not in-memory) so it stays
+  /// correct across serverless instances on Vercel, unlike a process-local
+  /// counter which would reset per cold start / per instance.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  /// Bumped whenever all previously-issued session JWTs should stop being
+  /// honored (e.g. password change) — checked against the token's own
+  /// embedded value in getCurrentStudio(), since sessions are stateless JWTs
+  /// with no server-side store to delete rows from otherwise.
+  sessionVersion   Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  albums      Album[]
-  permissions Permission[]
+  albums              Album[]
+  permissions         Permission[]
+  adminAccessLogs     AdminAccessLog[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("studios")
+}
+
+/// A single-use, short-lived "Quên mật khẩu" link. Only tokenHash (never
+/// the raw token) is stored, same idea as passwordHash — the raw token
+/// only ever exists in the emailed link and the requester's browser.
+model PasswordResetToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studioId  String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@map("password_reset_tokens")
+}
+
+/// Minimal access trail for System Owner actions — deliberately not the
+/// full Audit Log system (that was scoped and shelved separately). Only
+/// ever written to when an ADMIN views another Studio's account or Album,
+/// so "quyền xem dữ liệu nhạy cảm phải có... audit" has at least a real
+/// record, without building the bigger dashboard/filtering feature.
+model AdminAccessLog {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorStudioId String   @db.Uuid
+  action        String
+  resourceType  String
+  resourceId    String
+  createdAt     DateTime @default(now())
+
+  actor Studio @relation(fields: [actorStudioId], references: [id], onDelete: Cascade)
+
+  @@index([actorStudioId])
+  @@map("admin_access_logs")
 }
 
 model Album {
@@ -47,6 +107,28 @@ model Album {
   photoCount          Int       @default(0)
   googleDriveFolderId String?
   maxSelectionCount   Int?
+  /// Separate from passwordHash (which gates viewing/Sao) — this gates the
+  /// resized Download endpoint specifically, per Album Settings' own
+  /// "Cho phép tải ảnh" toggle.
+  downloadEnabled      Boolean   @default(false)
+  downloadPasswordHash String?
+  downloadExpiryDate   DateTime?
+  /// Bumped whenever guest sessions for this album should stop being
+  /// honored (Primary Password changed, or an explicit "Revoke Sessions")
+  /// — checked against the value embedded in each guest JWT at sign time,
+  /// the same pattern as Studio.sessionVersion.
+  guestSessionVersion Int      @default(0)
+  /// Loosely-referenced Photo.id (no FK — same pattern as
+  /// googleDriveFolderId above), validated at the API layer to belong to
+  /// this album before ever being saved. Used as the Landing Page
+  /// template's background photo. coverPosY is the vertical focal point
+  /// (0-100, like object-position), set via the Gallery's cover editor.
+  coverPhotoId String? @db.Uuid
+  coverPosY    Int?    @default(50)
+  /// The wedding/graduation/event date shown on the Landing Page template
+  /// (e.g. "12.12.2026") — distinct from expiryDate (the selection
+  /// deadline). Optional; templates hide the date line when unset.
+  eventDate DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 

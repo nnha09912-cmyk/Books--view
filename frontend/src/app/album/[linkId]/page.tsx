@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, useSearchParams } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
-import { Button } from "@/components/ui/button";
-import { picsum } from "@/lib/mock-data";
 import { api, ApiError } from "@/lib/api-client";
+import { ALBUM_HERO_COMPONENTS } from "@/components/album-templates";
+import { DEFAULT_ALBUM_TEMPLATE, isAlbumTemplateId } from "@/lib/album-templates";
 import type { PublicAlbumInfo } from "@/lib/types";
 
 export default function AlbumLandingPage({
@@ -18,6 +16,7 @@ export default function AlbumLandingPage({
   const [album, setAlbum] = useState<PublicAlbumInfo | null>(null);
   const [notFoundState, setNotFoundState] = useState(false);
   const [closedMessage, setClosedMessage] = useState<string | null>(null);
+  const selectIntent = useSearchParams().get("intent") === "select";
 
   useEffect(() => {
     api<PublicAlbumInfo>(`/api/public/album/${params.linkId}`)
@@ -42,47 +41,24 @@ export default function AlbumLandingPage({
   }
   if (!album) return null;
 
+  const templateId = isAlbumTemplateId(album.template) ? album.template : DEFAULT_ALBUM_TEMPLATE;
+  const Hero = ALBUM_HERO_COMPONENTS[templateId];
+
   return (
     <>
       <AppHeader studioName="Books View" brandHref={`/album/${params.linkId}`} />
-      <div className="landing-hero">
-        <div className="bg">
-          <Image
-            src={picsum(`hero-${params.linkId}`, 1600, 1000)}
-            alt=""
-            fill
-            unoptimized
-            style={{ objectFit: "cover" }}
-          />
-        </div>
-        <div className="content">
-          <span className="eyebrow">Album ảnh cưới</span>
-          <h1>{album.name}</h1>
-          <p className="desc">
-            {album.photoCount} khoảnh khắc đã sẵn sàng. Chọn những tấm ảnh anh
-            chị yêu thích nhất — tim ♥ để in album, sao ⭐ để tải về lưu giữ
-            riêng.
-          </p>
-          <Button
-            asChild
-            size="lg"
-            style={{ width: "auto", padding: "0 40px" }}
-          >
-            <Link href={`/album/${params.linkId}/gallery`}>
-              Bắt đầu xem ảnh →
-            </Link>
-          </Button>
-          <p
-            className="text-sm"
-            style={{ color: "rgba(255,255,255,.55)", marginTop: 16 }}
-          >
-            {album.expiryDate
-              ? `Hạn chọn ảnh: ${new Date(album.expiryDate).toLocaleDateString("vi-VN")} · `
-              : ""}
-            Không cần đăng nhập
-          </p>
-        </div>
-      </div>
+      <Hero
+        linkId={params.linkId}
+        albumName={album.name}
+        description={album.description}
+        photoCount={album.photoCount}
+        expiryDate={album.expiryDate}
+        eventDate={album.eventDate}
+        ctaHref={`/album/${params.linkId}/gallery${selectIntent ? "?intent=select" : ""}`}
+        ctaLabel={selectIntent ? "Bắt đầu chọn ảnh" : "Bắt đầu xem ảnh"}
+        coverPhotoUrl={album.coverPhotoUrl}
+        coverPosY={album.coverPosY}
+      />
 
       <footer
         style={{

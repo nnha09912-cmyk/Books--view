@@ -7,6 +7,7 @@ import {
   getGuestCustomer,
   verifyPassword,
 } from "@/lib/auth";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   name: z.string().optional(),
@@ -39,10 +40,26 @@ export async function POST(
       { status: 403 }
     );
   }
+  if (album.expiryDate && album.expiryDate < new Date()) {
+    return NextResponse.json(
+      { error: { message: "Album đã hết hạn, không thể xem." } },
+      { status: 403 }
+    );
+  }
 
   const existingGuest = await getGuestCustomer(params.linkToken);
   if (existingGuest) {
     return NextResponse.json({ customerId: existingGuest.id, isPrimary: existingGuest.isPrimary });
+  }
+
+  const ip = clientIp(req);
+  // Loose cap on identification attempts overall (per IP) — this is the
+  // route an attacker would hammer to enumerate/guess the album password.
+  if (!checkRateLimit(`customer:${ip}`, 20, 10 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: { message: "Bạn thao tác quá nhanh, thử lại sau ít phút nhé." } },
+      { status: 429 }
+    );
   }
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
@@ -55,6 +72,15 @@ export async function POST(
   let isPrimary = false;
 
   if (password) {
+    // Tighter, dedicated cap on password guesses specifically (per album per
+    // IP) — this is the field that unlocks Primary/Sao, so it needs its own
+    // brute-force ceiling independent of the generic identify-attempt cap.
+    if (!checkRateLimit(`album-pw:${album.id}:${ip}`, 8, 15 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: { message: "Bạn nhập sai quá nhiều lần, thử lại sau ít phút nhé." } },
+        { status: 429 }
+      );
+    }
     if (!album.passwordHash || !(await verifyPassword(password, album.passwordHash))) {
       return NextResponse.json({ error: { message: "Sai mật khẩu" } }, { status: 401 });
     }
@@ -80,7 +106,11 @@ export async function POST(
     },
   });
 
-  const token = signGuest({ customerId: customer.id, albumId: album.id });
+  const token = signGuest({
+    customerId: customer.id,
+    albumId: album.id,
+    sessionVersion: album.guestSessionVersion,
+  });
   const res = NextResponse.json({ customerId: customer.id, isPrimary: customer.isPrimary }, { status: 201 });
   res.cookies.set(guestCookieName(params.linkToken), token, {
     httpOnly: true,
