@@ -35,6 +35,18 @@ import { isFileSystemAccessSupported, buildSourceIndex } from "@/lib/fs-filter";
 import { ALBUM_TEMPLATES } from "@/lib/album-templates";
 import type { AlbumDetail, AlbumPhoto } from "@/lib/types";
 
+/** "Cập nhật DD/MM/YY HH:mm" for the "Đồng bộ ảnh" button's hover tooltip —
+ * 2-digit year and no seconds are deliberate here, distinct from the
+ * 4-digit vi-VN date format used elsewhere on this page ("Tạo ngày
+ * 26/8/2026"). Uses the Date object's local getters (not UTC), so it
+ * renders in whatever timezone the studio's own browser is in. */
+function formatLastSync(iso: string | null): string {
+  if (!iso) return "Chưa cập nhật";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `Cập nhật ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${pad(d.getFullYear() % 100)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function AlbumDetailPage({
   params,
 }: {
@@ -130,7 +142,6 @@ export default function AlbumDetailPage({
             <TabsList className="w-full justify-start">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="gallery">Gallery</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
               <TabsTrigger value="export">Export</TabsTrigger>
             </TabsList>
@@ -140,9 +151,6 @@ export default function AlbumDetailPage({
             </TabsContent>
             <TabsContent value="gallery" className="mt-lg">
               <GalleryTab album={album} onSynced={reloadAlbum} />
-            </TabsContent>
-            <TabsContent value="analytics" className="mt-lg">
-              <AnalyticsTab album={album} />
             </TabsContent>
             <TabsContent value="settings" className="mt-lg">
               <SettingsTab
@@ -171,8 +179,32 @@ function OverviewTab({
   album: AlbumDetail;
   onStatusChange: (status: string) => void;
 }) {
+  const totalLikes = album.photos.reduce((s, p) => s + p.likeCount, 0);
+  const totalStars = album.photos.reduce((s, p) => s + p.starCount, 0);
+  const submittedCount = album.customers.filter((c) => c.submittedAt).length;
+  const completionRate = album.customers.length
+    ? Math.round((submittedCount / album.customers.length) * 100)
+    : 0;
+
   return (
     <>
+      <div
+        className="stat-grid"
+        style={{ gridTemplateColumns: "repeat(3,1fr)", maxWidth: 480 }}
+      >
+        <div className="stat-card">
+          <span className="text-sm">Tổng lượt thích ♥</span>
+          <div className="num">{totalLikes}</div>
+        </div>
+        <div className="stat-card">
+          <span className="text-sm">Tổng lượt sao ⭐</span>
+          <div className="num">{totalStars}</div>
+        </div>
+        <div className="stat-card">
+          <span className="text-sm">Tỉ lệ hoàn thành</span>
+          <div className="num">{completionRate}%</div>
+        </div>
+      </div>
       <div className="card" style={{ maxWidth: 480 }}>
         <div className="card-body lg">
           <h3 className="mb-md">Thông tin album</h3>
@@ -406,10 +438,13 @@ function GalleryTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error?.message ?? "Đồng bộ Drive thất bại");
+      const errorCount = data.errors?.length ?? 0;
       toast(
         data.added > 0
-          ? `Đã quét Drive — thêm ${data.added} ảnh mới.`
-          : "Đã quét Drive — không có ảnh mới."
+          ? `Đã quét Drive — thêm ${data.added} ảnh mới${data.skipped ? `, ${data.skipped} ảnh đã có` : ""}${errorCount ? `, ${errorCount} lỗi` : ""}.`
+          : errorCount
+            ? `Đã quét Drive — không có ảnh mới, ${errorCount} lỗi.`
+            : "Đã quét Drive — không có ảnh mới."
       );
       onSynced();
     } catch (e) {
@@ -555,6 +590,7 @@ function GalleryTab({
               size="sm"
               onClick={album.googleDriveFolderId ? handleDriveSync : handleSync}
               disabled={syncing || (!album.googleDriveFolderId && !fsSupported)}
+              title={album.googleDriveFolderId ? formatLastSync(album.lastGoogleSyncAt) : undefined}
             >
               <RefreshCw size={14} className={syncing ? "animate-spin" : undefined} />
               {syncing ? syncProgress || "Đang đồng bộ..." : "Đồng bộ ảnh"}
@@ -663,77 +699,6 @@ function GalleryTab({
           ))}
         </div>
       )}
-    </>
-  );
-}
-
-function AnalyticsTab({ album }: { album: AlbumDetail }) {
-  const totalLikes = album.photos.reduce((s, p) => s + p.likeCount, 0);
-  const totalStars = album.photos.reduce((s, p) => s + p.starCount, 0);
-  const submittedCount = album.customers.filter((c) => c.submittedAt).length;
-  const completionRate = album.customers.length
-    ? Math.round((submittedCount / album.customers.length) * 100)
-    : 0;
-  const maxSelections = Math.max(
-    1,
-    ...album.customers.map((c) => c.likes + c.stars)
-  );
-
-  return (
-    <>
-      <div
-        className="stat-grid"
-        style={{ gridTemplateColumns: "repeat(3,1fr)" }}
-      >
-        <div className="stat-card">
-          <span className="text-sm">Tổng lượt thích ♥</span>
-          <div className="num">{totalLikes}</div>
-        </div>
-        <div className="stat-card">
-          <span className="text-sm">Tổng lượt sao ⭐</span>
-          <div className="num">{totalStars}</div>
-        </div>
-        <div className="stat-card">
-          <span className="text-sm">Tỉ lệ hoàn thành</span>
-          <div className="num">{completionRate}%</div>
-        </div>
-      </div>
-      <div className="card">
-        <div className="card-body lg">
-          <h3 className="mb-md">Lựa chọn theo khách hàng</h3>
-          {album.customers.length === 0 ? (
-            <p className="text-secondary">Chưa có dữ liệu.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {album.customers.map((c) => (
-                <div key={c.id}>
-                  <div className="flex justify-between mb-sm">
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>
-                      {c.name}
-                    </span>
-                    <span className="text-sm">
-                      {c.likes + c.stars === 0
-                        ? "Chưa xem"
-                        : `${c.likes} ♥ · ${c.stars} ⭐`}
-                    </span>
-                  </div>
-                  <div className="bar-row">
-                    <div className="track">
-                      <div
-                        className="fill"
-                        style={{
-                          width: `${((c.likes + c.stars) / maxSelections) * 100}%`,
-                          background: "var(--like)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
     </>
   );
 }

@@ -45,6 +45,7 @@ export async function GET(
     passwordProtected: !!album.passwordHash,
     createdAt: album.createdAt,
     googleDriveFolderId: album.googleDriveFolderId,
+    lastGoogleSyncAt: album.lastGoogleSyncAt,
     maxSelectionCount: album.maxSelectionCount,
     downloadEnabled: album.downloadEnabled,
     downloadPasswordProtected: !!album.downloadPasswordHash,

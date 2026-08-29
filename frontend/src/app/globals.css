@@ -1226,9 +1226,13 @@
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.15s ease;
   }
   .gh-back:hover {
     background: rgba(0, 0, 0, 0.55);
+    transform: translateY(-1.5px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   }
   .gh-cover-bottom {
     position: absolute;
@@ -1288,9 +1292,13 @@
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.15s ease;
   }
   .gh-change-cover:hover {
     background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1.5px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   }
   @media (max-width: 640px) {
     .gh-cover {
@@ -1366,13 +1374,18 @@
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     transition:
       background 0.15s,
-      border-color 0.15s;
+      border-color 0.15s,
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
   }
   .gh-btn:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-1.5px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   }
   .gh-btn[disabled] {
     opacity: 0.4;
@@ -1412,6 +1425,8 @@
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.15s ease, color 0.15s ease;
   }
   .gh-folder-btn.active {
     background: #1c1d21;
@@ -1421,6 +1436,8 @@
   .gh-folder-btn:hover:not(.active) {
     border-color: rgba(255, 255, 255, 0.5);
     color: #fff;
+    transform: translateY(-1.5px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   }
   @media (max-width: 640px) {
     .gh-folders {
@@ -1460,6 +1477,7 @@
     border-radius: 8px;
     color: rgba(255, 255, 255, 0.55);
     cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.15s ease;
   }
   .gh-view-btn.active {
     background: #fff;
@@ -1467,6 +1485,8 @@
   }
   .gh-view-btn:hover:not(.active) {
     color: #fff;
+    transform: translateY(-1.5px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   }
   .gh-sort {
     position: relative;
@@ -1487,6 +1507,13 @@
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.15s ease;
+  }
+  .gh-sort-btn:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-1.5px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   }
   .gh-sort-menu {
     position: absolute;

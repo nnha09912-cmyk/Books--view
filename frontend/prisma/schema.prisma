@@ -129,6 +129,11 @@ model Album {
   /// (e.g. "12.12.2026") — distinct from expiryDate (the selection
   /// deadline). Optional; templates hide the date line when unset.
   eventDate DateTime?
+  /// Stamped with the current time whenever a Google Drive scan
+  /// (drive-import or drive-sync) actually completes successfully — never
+  /// touched on failure, so the "Đồng bộ ảnh" button's tooltip always shows
+  /// the last time it *worked*, not the last time it was merely attempted.
+  lastGoogleSyncAt DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 

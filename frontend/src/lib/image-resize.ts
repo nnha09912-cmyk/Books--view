@@ -65,16 +65,26 @@ async function decodeImage(bytes: Buffer, maxBytes: number) {
   return image;
 }
 
+export interface ResizedImage {
+  buffer: Buffer;
+  width: number;
+  height: number;
+}
+
 /** Validates raw bytes are a real, supported, reasonably-sized image, then
  * resizes it down to fit within WEB_MAX_EDGE (never upscales) and re-encodes
  * as JPEG. Auto-rotates based on EXIF orientation and strips metadata as a
  * side effect of re-encoding. Throws InvalidImageError instead of ever
  * producing output for something that isn't actually a valid image — the
- * caller must not write `bytes` to disk unless this call succeeds. */
-export async function resizeForWeb(bytes: Buffer): Promise<Buffer> {
+ * caller must not write `bytes` to disk unless this call succeeds. Also
+ * returns the resized pixel dimensions (post-rotation, so a portrait photo
+ * shot sideways reports correctly) — cheap since sharp already has them
+ * on hand from the same encode pass, and lets callers persist aspect
+ * ratio for the grid/masonry/carousel without a second decode. */
+export async function resizeForWeb(bytes: Buffer): Promise<ResizedImage> {
   const image = await decodeImage(bytes, MAX_UPLOAD_FILE_BYTES);
   try {
-    return await image
+    const { data, info } = await image
       .rotate()
       .resize({
         width: WEB_MAX_EDGE,
@@ -83,7 +93,8 @@ export async function resizeForWeb(bytes: Buffer): Promise<Buffer> {
         withoutEnlargement: true,
       })
       .jpeg({ quality: WEB_JPEG_QUALITY, mozjpeg: true })
-      .toBuffer();
+      .toBuffer({ resolveWithObject: true });
+    return { buffer: data, width: info.width, height: info.height };
   } catch {
     throw new InvalidImageError("File không phải ảnh hợp lệ.");
   }
@@ -140,5 +151,67 @@ export async function resizeForDownload(bytes: Buffer): Promise<Buffer> {
     }).toBuffer();
   } catch {
     throw new InvalidImageError("File không phải ảnh hợp lệ.");
+  }
+}
+
+/** Fixed size tiers the guest-facing image proxy resizes down to on request
+ * (`?w=`) — a small, bounded set (not an arbitrary pixel value) keeps the
+ * proxy's in-memory resize cache from growing one entry per slightly-
+ * different viewport width. Matches the tiers a `?w=` image-delivery layer
+ * would typically expose (400/800/1200/1600). */
+export const IMAGE_PROXY_WIDTH_TIERS = [400, 800, 1200, 1600] as const;
+
+/** Snaps a requested `?w=` value up to the nearest tier that can satisfy it
+ * (never down — never serve something smaller than what was asked for),
+ * capping at the largest tier. Returns null for anything missing/invalid,
+ * meaning "no resize, serve the source as-is" (the pre-Phase-2 behavior). */
+export function resolveImageProxyWidth(param: string | null): number | null {
+  if (!param) return null;
+  const requested = Number(param);
+  if (!Number.isFinite(requested) || requested <= 0) return null;
+  const tier = IMAGE_PROXY_WIDTH_TIERS.find((w) => requested <= w);
+  return tier ?? IMAGE_PROXY_WIDTH_TIERS[IMAGE_PROXY_WIDTH_TIERS.length - 1];
+}
+
+export type ImageProxyFormat = "avif" | "webp" | "jpeg";
+
+/** Picks the best format the requesting browser actually declared support
+ * for via its `Accept` header — the same negotiation a browser already does
+ * for `<picture>`/`srcset`, just applied server-side since this proxy
+ * decides the bytes itself. Falls back to plain JPEG for anything that
+ * doesn't advertise either (older Safari, non-browser clients, curl). */
+export function pickImageFormat(acceptHeader: string | null): ImageProxyFormat {
+  const accept = acceptHeader ?? "";
+  if (accept.includes("image/avif")) return "avif";
+  if (accept.includes("image/webp")) return "webp";
+  return "jpeg";
+}
+
+export function contentTypeForFormat(format: ImageProxyFormat): string {
+  return format === "avif" ? "image/avif" : format === "webp" ? "image/webp" : "image/jpeg";
+}
+
+/** Transcodes already-processed bytes (the proxy's own previous preview, or
+ * a Drive thumbnail — never a raw user upload, so this intentionally skips
+ * resizeForWeb's stricter upload validation) to `format`, optionally
+ * resizing down to `width` in the same pass. Never upscales, never crops,
+ * always preserves aspect ratio — same `fit: inside` contract as the rest
+ * of this file. Quality numbers differ per codec on purpose: AVIF/WebP
+ * reach comparable visual quality to JPEG at a noticeably lower number. */
+export async function transcodeImage(
+  bytes: Buffer,
+  opts: { width?: number; format: ImageProxyFormat }
+): Promise<Buffer> {
+  let pipeline = sharp(bytes, { limitInputPixels: MAX_PIXELS });
+  if (opts.width) {
+    pipeline = pipeline.resize({ width: opts.width, withoutEnlargement: true });
+  }
+  switch (opts.format) {
+    case "avif":
+      return pipeline.avif({ quality: 55 }).toBuffer();
+    case "webp":
+      return pipeline.webp({ quality: 78 }).toBuffer();
+    default:
+      return pipeline.jpeg({ quality: WEB_JPEG_QUALITY, mozjpeg: true }).toBuffer();
   }
 }

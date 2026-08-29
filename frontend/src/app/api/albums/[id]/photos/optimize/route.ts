@@ -63,13 +63,13 @@ export async function POST(
       const relative = decodeURIComponent(photo.originalUrl).replace(/^\/uploads\//, "");
       const originalPath = path.join(process.cwd(), "public", "uploads", relative);
       const bytes = await readFile(originalPath);
-      const previewBytes = await resizeForWeb(bytes);
+      const resized = await resizeForWeb(bytes);
       const previewName = previewFilename(photo.filename);
-      await writeFile(path.join(previewDir, previewName), previewBytes);
+      await writeFile(path.join(previewDir, previewName), resized.buffer);
       const previewUrl = `/uploads/${album.id}/previews/${encodeURIComponent(previewName)}`;
       await prisma.photo.update({
         where: { id: photo.id },
-        data: { thumbnailUrl: previewUrl, previewUrl },
+        data: { thumbnailUrl: previewUrl, previewUrl, width: resized.width, height: resized.height },
       });
       optimized++;
     } catch (e) {

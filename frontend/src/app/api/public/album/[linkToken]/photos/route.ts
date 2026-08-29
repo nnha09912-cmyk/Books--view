@@ -50,18 +50,31 @@ export async function GET(
   );
 
   return NextResponse.json({
-    data: album.photos.map((p) => ({
-      id: p.id,
-      filename: p.filename,
-      thumbnailUrl: p.thumbnailUrl,
-      previewUrl: p.previewUrl,
-      originalUrl: p.originalUrl,
-      width: p.width,
-      height: p.height,
-      likeCount: p.likeCount,
-      starCount: p.starCount,
-      liked: likedIds.has(p.id),
-      starred: starredIds.has(p.id),
-    })),
+    data: album.photos.map((p) => {
+      // The client never sees the real storage URL (Vercel Blob or Google
+      // Drive) — every view goes through the gated image proxy instead, so
+      // a copied/bookmarked image link stops working the moment the album
+      // closes, expires, or its password changes. See
+      // photos/[photoId]/image/route.ts.
+      //
+      // `v` (the photo's own updatedAt) makes the URL itself change the
+      // moment a photo is re-synced/overwritten — old browser/proxy cache
+      // entries are simply never requested again under the new URL, instead
+      // of silently keeping the stale image around for a full day.
+      const proxyUrl = `/api/public/album/${params.linkToken}/photos/${p.id}/image?v=${p.updatedAt.getTime()}`;
+      return {
+        id: p.id,
+        filename: p.filename,
+        thumbnailUrl: p.thumbnailUrl ? proxyUrl : null,
+        previewUrl: p.previewUrl ? proxyUrl : null,
+        originalUrl: proxyUrl,
+        width: p.width,
+        height: p.height,
+        likeCount: p.likeCount,
+        starCount: p.starCount,
+        liked: likedIds.has(p.id),
+        starred: starredIds.has(p.id),
+      };
+    }),
   });
 }

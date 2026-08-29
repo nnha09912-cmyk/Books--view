@@ -65,6 +65,7 @@ export interface AlbumDetail {
   passwordProtected: boolean;
   createdAt: string;
   googleDriveFolderId: string | null;
+  lastGoogleSyncAt: string | null;
   maxSelectionCount: number | null;
   downloadEnabled: boolean;
   downloadPasswordProtected: boolean;

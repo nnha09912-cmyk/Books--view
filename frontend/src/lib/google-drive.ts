@@ -12,6 +12,7 @@ export interface DriveImageFile {
   mimeType: string;
   size: string | null;
   thumbnailLink: string | null;
+  imageMediaMetadata?: { width?: number; height?: number };
 }
 
 /** Reserved so Album.name can be auto-filled from the actual Drive folder
@@ -144,6 +145,8 @@ export async function importNewPhotosFromDrive(
           fileSize: file.size ? Number(file.size) : null,
           mimeType: file.mimeType || null,
           googleDriveId: file.id,
+          width: file.imageMediaMetadata?.width ?? null,
+          height: file.imageMediaMetadata?.height ?? null,
         },
       });
       existingNames.add(filename);
@@ -157,7 +160,12 @@ export async function importNewPhotosFromDrive(
   const photoCount = await prisma.photo.count({ where: { albumId } });
   await prisma.album.update({
     where: { id: albumId },
-    data: { photoCount, googleDriveFolderId: folderId },
+    // Reaching this line means the scan itself completed (listDriveImages
+    // above would have thrown first on a real failure — folder unreachable,
+    // bad sharing settings, etc.) — per-file errors are partial and still
+    // count as a successful scan overall, so lastGoogleSyncAt updates here
+    // regardless of whether `errors` came back empty.
+    data: { photoCount, googleDriveFolderId: folderId, lastGoogleSyncAt: new Date() },
   });
 
   return { added, skipped, errors };
@@ -172,7 +180,10 @@ export async function listDriveImages(folderId: string): Promise<DriveImageFile[
   do {
     const url = new URL(`${DRIVE_API}/files`);
     url.searchParams.set("q", `'${folderId}' in parents and trashed = false and mimeType contains 'image/'`);
-    url.searchParams.set("fields", "nextPageToken, files(id, name, mimeType, size, thumbnailLink)");
+    url.searchParams.set(
+      "fields",
+      "nextPageToken, files(id, name, mimeType, size, thumbnailLink, imageMediaMetadata(width, height))"
+    );
     url.searchParams.set("pageSize", "1000");
     url.searchParams.set("key", key);
     if (pageToken) url.searchParams.set("pageToken", pageToken);

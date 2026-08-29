@@ -36,6 +36,18 @@ import { api, ApiError } from "@/lib/api-client";
 import { getCarouselState, shortestDistance } from "@/lib/carousel-position";
 import type { AlbumPhoto, PublicAlbumInfo } from "@/lib/types";
 
+// Custom icon (not in lucide-react) for the 3D Carousel view-switch button —
+// fill uses currentColor so it inherits the button's own color states
+// (rgba(255,255,255,.55) at rest, #fff active/hover) exactly like the
+// lucide icons around it, instead of a hardcoded color.
+function PerspectiveIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} fill="currentColor" viewBox="0 0 256 256">
+      <path d="M240,120H224V48a16,16,0,0,0-18.86-15.74l-160,29.09A16,16,0,0,0,32,77.09V120H16a8,8,0,0,0,0,16H32v42.91a16,16,0,0,0,13.14,15.74l160,29.09A16.47,16.47,0,0,0,208,224a16,16,0,0,0,16-16V136h16a8,8,0,0,0,0-16ZM48,77.09,208,48v72H48ZM208,208,48,178.91V136H208Z" />
+    </svg>
+  );
+}
+
 type ViewMode = "masonry" | "grid" | "carousel";
 
 interface CustomFolder {
@@ -72,6 +84,15 @@ export default function GalleryPage({
   // null = follow the responsive CSS default; set once the user drags the
   // size slider (Masonry/Grid only — fewer columns = bigger photos).
   const [gridSize, setGridSize] = useState<number | null>(null);
+  // Real rendered width of one grid/masonry tile, measured from the DOM
+  // (not recomputed from CSS column-count/gap math, which would drift the
+  // moment either changes) — every tile in a CSS Grid or multi-column
+  // layout shares the same column width, so measuring just one is enough.
+  // Feeds the image proxy's `?w=` so a small tile doesn't fetch the full
+  // 1600px preview; null until the first measurement lands, during which
+  // images just load at full size (no layout shift, one extra fetch at most).
+  const gridTileRef = useRef<HTMLDivElement | null>(null);
+  const [tileWidthPx, setTileWidthPx] = useState<number | null>(null);
   const [filterLike, setFilterLike] = useState(false);
   const [filterStar, setFilterStar] = useState(false);
 
@@ -425,6 +446,26 @@ export default function GalleryPage({
       document.body.style.overflow = prevOverflow;
     };
   }, [lightboxId]);
+
+  // Re-measures the first grid/masonry tile's real rendered width whenever
+  // it can change: a window resize (breakpoint column-count changes) or the
+  // user dragging the "Cỡ ảnh" size slider (gridSize). Re-running on
+  // `visiblePhotos.length` too catches the very first tile actually
+  // mounting (there's nothing to observe before that).
+  useEffect(() => {
+    const el = gridTileRef.current;
+    if (!el || view === "carousel") return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (!w) return;
+      // Cap at 2x even on 3x-DPR phones — a real, visible sharpness gain
+      // over 1x, without paying for pixels a 3x request would add on top.
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      setTileWidthPx(Math.ceil(w * dpr));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view, gridSize, visiblePhotos.length]);
 
   function handleFolderPhotoClick(e: React.MouseEvent, index: number, id: string) {
     if (e.shiftKey && folderLastClickedIndex !== null) {
@@ -1040,7 +1081,7 @@ export default function GalleryPage({
             type="button"
             onClick={() => setView("masonry")}
           >
-            <LayoutDashboard size={16} />
+            <LayoutDashboard size={18} />
           </button>
           <button
             className={`gh-view-btn${view === "grid" ? " active" : ""}`}
@@ -1048,7 +1089,7 @@ export default function GalleryPage({
             type="button"
             onClick={() => setView("grid")}
           >
-            <Grid3x3 size={16} />
+            <Grid3x3 size={18} />
           </button>
           <button
             className={`gh-view-btn${view === "carousel" ? " active" : ""}`}
@@ -1059,7 +1100,7 @@ export default function GalleryPage({
               setView("carousel");
             }}
           >
-            <RefreshCw size={16} />
+            <PerspectiveIcon size={26} />
           </button>
         </div>
         <div className={`gh-sort${sortOpen ? " open" : ""}`}>
@@ -1275,20 +1316,31 @@ export default function GalleryPage({
                 : undefined
             }
           >
-            {visiblePhotos.map((photo) => {
+            {visiblePhotos.map((photo, index) => {
               const width = 700;
               const height =
                 view === "masonry"
                   ? Math.round(width * masonryRatio(photo.id))
                   : 700;
+              // Every tile in this CSS Grid/multi-column layout renders at
+              // the same column width, so the one real measurement taken
+              // from the first tile (gridTileRef, see the ResizeObserver
+              // effect above) applies to all of them — request that actual
+              // display size instead of the full 1600px preview.
+              const previewSrc = photo.previewUrl
+                ? tileWidthPx
+                  ? `${photo.previewUrl}&w=${tileWidthPx}`
+                  : photo.previewUrl
+                : picsum(photo.id, width, height);
               return (
               <div
                 key={photo.id}
+                ref={index === 0 ? gridTileRef : undefined}
                 className="photo-tile"
                 onClick={() => openLightbox(photo.id)}
               >
                 <Image
-                  src={photo.previewUrl ?? picsum(photo.id, width, height)}
+                  src={previewSrc}
                   alt=""
                   width={width}
                   height={height}
@@ -1425,7 +1477,7 @@ export default function GalleryPage({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={photo.thumbnailUrl ?? picsum(photo.id, 200, 200)}
+                    src={photo.thumbnailUrl ? `${photo.thumbnailUrl}&w=400` : picsum(photo.id, 200, 200)}
                     alt=""
                     loading="lazy"
                     decoding="async"
@@ -1518,7 +1570,7 @@ export default function GalleryPage({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={photo.thumbnailUrl ?? picsum(photo.id, 200, 200)}
+                      src={photo.thumbnailUrl ? `${photo.thumbnailUrl}&w=400` : picsum(photo.id, 200, 200)}
                       alt=""
                       loading="lazy"
                       decoding="async"

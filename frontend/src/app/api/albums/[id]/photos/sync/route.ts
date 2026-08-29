@@ -87,7 +87,7 @@ export async function POST(
       // anything touches disk — a file that isn't actually a supported
       // image must never be written into public/uploads, since that
       // directory is served directly to the web.
-      const previewBytes = await resizeForWeb(bytes);
+      const resized = await resizeForWeb(bytes);
 
       const original = await put(`albums/${album.id}/${filename}`, bytes, {
         access: "public",
@@ -106,7 +106,7 @@ export async function POST(
       // the lightbox even opens. originalUrl keeps the untouched file for
       // the explicit Download action.
       const previewName = previewFilename(filename);
-      const preview = await put(`albums/${album.id}/previews/${previewName}`, previewBytes, {
+      const preview = await put(`albums/${album.id}/previews/${previewName}`, resized.buffer, {
         access: "public",
         contentType: "image/jpeg",
         addRandomSuffix: false,
@@ -122,6 +122,8 @@ export async function POST(
             thumbnailUrl: previewUrl,
             previewUrl,
             fileSize: bytes.length,
+            width: resized.width,
+            height: resized.height,
           },
         });
         overwritten++;
@@ -135,6 +137,8 @@ export async function POST(
             previewUrl,
             fileSize: bytes.length,
             mimeType: file.type || null,
+            width: resized.width,
+            height: resized.height,
           },
         });
         added++;
