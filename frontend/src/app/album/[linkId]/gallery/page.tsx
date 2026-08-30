@@ -829,7 +829,7 @@ export default function GalleryPage({
       <header className="app-header">
         <div className="brand">
           <BrandMark />
-          <span className="name">Books View</span>
+          <span className="name">Guikhach.com</span>
         </div>
         <div className="header-actions">
           <div

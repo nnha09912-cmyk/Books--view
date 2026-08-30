@@ -1131,6 +1131,26 @@
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
   }
 
+  /* Same lift + soft-shadow interaction as the toolbar buttons above
+     (.gh-back/.gh-btn/etc.) — subtle shadow at rest, lifts 1.5px with a
+     stronger soft shadow on hover, no border/ring growth, no layout shift
+     (transform + box-shadow only). Reused on the Album detail page's
+     Chia sẻ / Xem như khách / Sắp xếp lại / Tối ưu ảnh / Đồng bộ ảnh /
+     Nhập từ Google Drive buttons. */
+  .admin-lift-btn {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1225);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .admin-lift-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 7px rgba(0, 0, 0, 0.1715);
+  }
+  /* Modifier for the Export tab's download buttons — no shadow at rest at
+     all (invisible until hover), combine with .admin-lift-btn. */
+  .admin-lift-btn.admin-lift-btn--flat {
+    box-shadow: none;
+  }
+
   /* Scroll-to-top FAB. Idle at 20% opacity (unobtrusive) and bounces
      continuously to draw the eye without shouting; hovering brings it to
      full opacity + a soft accent glow. The bounce stops the moment it's

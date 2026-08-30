@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
     >
       <div className="brand">
         <BrandMark />
-        <span className="name">Books View</span>
+        <span className="name">Guikhach.com</span>
       </div>
 
       <h1 style={{ fontSize: 26, marginBottom: 6 }}>Quên mật khẩu?</h1>

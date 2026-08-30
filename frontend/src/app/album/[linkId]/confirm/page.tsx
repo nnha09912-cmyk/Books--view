@@ -18,14 +18,14 @@ export default function AlbumConfirmPage({
 
   return (
     <>
-      <AppHeader studioName="Books View" brandHref={`/album/${params.linkId}`} />
+      <AppHeader studioName="Guikhach.com" brandHref={`/album/${params.linkId}`} />
       <div className="confirm-shell">
         <div className="confirm-icon">
           <Check size={32} />
         </div>
         <h1 style={{ fontSize: 26 }}>Cảm ơn anh chị!</h1>
         <p className="text-secondary" style={{ marginTop: 8 }}>
-          Lựa chọn của anh chị đã được gửi đến Books View. Chúng tôi sẽ
+          Lựa chọn của anh chị đã được gửi đến Guikhach.com. Chúng tôi sẽ
           liên hệ trong 3–5 ngày làm việc.
         </p>
 
@@ -56,8 +56,8 @@ export default function AlbumConfirmPage({
         </div>
 
         <p className="text-sm" style={{ marginTop: 40 }}>
-          Có thắc mắc? Liên hệ Books View — 0909 123 456 ·
-          hi@booksview.vn
+          Có thắc mắc? Liên hệ Guikhach.com — 0909 123 456 ·
+          hi@guikhach.com
         </p>
       </div>
     </>

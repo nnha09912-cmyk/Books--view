@@ -31,7 +31,7 @@ export default function AlbumLandingPage({
   if (closedMessage) {
     return (
       <>
-        <AppHeader studioName="Books View" />
+        <AppHeader studioName="Guikhach.com" />
         <div className="empty-state" style={{ minHeight: "60vh" }}>
           <h3>Album đã đóng</h3>
           <p className="text-secondary">{closedMessage}</p>
@@ -46,7 +46,7 @@ export default function AlbumLandingPage({
 
   return (
     <>
-      <AppHeader studioName="Books View" brandHref={`/album/${params.linkId}`} />
+      <AppHeader studioName="Guikhach.com" brandHref={`/album/${params.linkId}`} />
       <Hero
         linkId={params.linkId}
         albumName={album.name}
@@ -69,7 +69,7 @@ export default function AlbumLandingPage({
       >
         <p className="text-sm">
           Có thắc mắc? Liên hệ {album.studioName} — 0909 123 456 ·
-          hi@booksview.vn
+          hi@guikhach.com
         </p>
       </footer>
     </>

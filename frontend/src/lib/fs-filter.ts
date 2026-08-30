@@ -3,7 +3,7 @@
 // before use). Matching algorithm (basename match ignoring extension,
 // case-insensitive; RAW/JPG extension sets) is ported 1:1 from the Books
 // Filter desktop app's engine (src-tauri/src/filter.rs) per explicit request
-// to reuse it directly inside Books View, keyed off each customer's real
+// to reuse it directly inside Guikhach.com, keyed off each customer's real
 // photo selection instead of a manually typed name list.
 
 export type ExtMode = "all" | "jpg" | "raw" | "raw_jpg" | "custom";
@@ -358,7 +358,7 @@ export function humanSize(bytes: number): string {
 
 export function buildMultiUserReport(results: CustomerFilterResult[]): string {
   const lines: string[] = [];
-  lines.push("=== BÁO CÁO LỌC ẢNH — Books View ===");
+  lines.push("=== BÁO CÁO LỌC ẢNH — Guikhach.com ===");
   const totalCopied = results.reduce((s, r) => s + r.copied, 0);
   const totalBytes = results.reduce((s, r) => s + r.totalBytes, 0);
   lines.push(`Tổng: ${results.length} khách, ${totalCopied} ảnh (${humanSize(totalBytes)})`);

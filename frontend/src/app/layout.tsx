@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Books View",
+  title: "Guikhach.com",
   description: "Photo Gallery & Selection Platform for Photography Studios",
 };
 

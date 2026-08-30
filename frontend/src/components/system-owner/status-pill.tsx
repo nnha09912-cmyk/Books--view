@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
  * accent/success/like), and this file intentionally never edits shared
  * components — so this stays local rather than extending Badge. Uses the
  * same design tokens (bg-success, bg-warning, bg-destructive, bg-accent)
- * so it still looks native to Books View. */
+ * so it still looks native to Guikhach.com. */
 export function StatusPill({
   tone,
   children,

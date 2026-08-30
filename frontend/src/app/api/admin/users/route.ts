@@ -6,7 +6,7 @@ import { studioDisplayName } from "@/lib/studio-name";
 /** Lists every regular ("USER") Studio account on the platform — deliberately
  * excludes role="ADMIN" rows, so backup/System Owner accounts never appear
  * even to other admins browsing this list. Cross-tenant by design (this is
- * the one place in Books View that's allowed to see across every Studio),
+ * the one place in Guikhach.com that's allowed to see across every Studio),
  * but only after confirming the caller's own role from the database. */
 export async function GET() {
   const studio = await getCurrentStudio();

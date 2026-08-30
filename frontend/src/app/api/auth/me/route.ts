@@ -32,7 +32,7 @@ export async function GET() {
 
 const patchSchema = z.object({
   // No min(1) — an empty string means "clear the studio name", since it's
-  // optional (not everyone using Books View runs a studio).
+  // optional (not everyone using Guikhach.com runs a studio).
   name: z.string().optional(),
   phone: z.string().optional(),
   description: z.string().optional(),

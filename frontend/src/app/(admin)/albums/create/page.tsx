@@ -22,7 +22,7 @@ export default function AlbumCreatePage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState(
-    "Cảm ơn anh chị đã tin tưởng Books View. Vui lòng chọn ảnh yêu thích trước ngày 20/09."
+    "Cảm ơn anh chị đã tin tưởng Guikhach.com. Vui lòng chọn ảnh yêu thích trước ngày 20/09."
   );
   const [driveLink, setDriveLink] = useState("");
   const [maxSelectionCount, setMaxSelectionCount] = useState("");
@@ -189,7 +189,7 @@ export default function AlbumCreatePage() {
                     Link Google Drive <span className="text-sm">(tuỳ chọn — có thể thêm sau)</span>
                   </label>
                   <p className="text-sm" style={{ color: "var(--muted-foreground)", margin: "2px 0 8px" }}>
-                    Dán link folder đã chia sẻ ở chế độ &quot;Anyone with the link&quot; — Books View sẽ tự nhập ảnh vào album ngay sau khi tạo.
+                    Dán link folder đã chia sẻ ở chế độ &quot;Anyone with the link&quot; — Guikhach.com sẽ tự nhập ảnh vào album ngay sau khi tạo.
                   </p>
                   <input
                     className="input mono"

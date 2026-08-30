@@ -35,7 +35,7 @@ function AvatarLink() {
 }
 
 export function AppHeader({
-  studioName = "Books View",
+  studioName = "Guikhach.com",
   showNotifications = false,
   showAvatar = false,
   brandHref = "/dashboard",

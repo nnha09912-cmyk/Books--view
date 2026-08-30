@@ -71,7 +71,7 @@ export function VintageHero({
         <Link className="cta" href={ctaHref}>
           {ctaLabel}
         </Link>
-        <p className="foot">— Books View —</p>
+        <p className="foot">— Guikhach.com —</p>
       </div>
     </div>
   );

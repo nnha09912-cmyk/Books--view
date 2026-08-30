@@ -45,7 +45,7 @@ export default function SignupPage() {
     >
       <div className="brand">
         <BrandMark />
-        <span className="name">Books View</span>
+        <span className="name">Guikhach.com</span>
       </div>
 
       <h1 style={{ fontSize: 26, marginBottom: 6 }}>Tạo tài khoản studio</h1>
@@ -75,7 +75,7 @@ export default function SignupPage() {
             type="text"
             id="studio"
             name="studio"
-            placeholder="Books View"
+            placeholder="Guikhach.com"
           />
           <span className="hint">Không bắt buộc</span>
         </div>

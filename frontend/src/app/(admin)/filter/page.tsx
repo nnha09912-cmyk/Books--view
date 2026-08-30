@@ -86,7 +86,7 @@ function ProgressBar({ text, pct }: { text: string; pct: number }) {
 }
 
 function buildMultiReportLines(results: CustomerFilterResult[]): string[] {
-  const lines: string[] = ["=== BÁO CÁO LỌC ẢNH — Books View ==="];
+  const lines: string[] = ["=== BÁO CÁO LỌC ẢNH — Guikhach.com ==="];
   for (const r of results) {
     lines.push("");
     lines.push(`--- ${r.name}${r.phone ? " · " + r.phone : ""} → ${r.destDirName} ---`);
@@ -503,7 +503,7 @@ export default function FilterPage() {
 
   function exportNameReport() {
     if (!nameResult) return;
-    const lines = ["=== BÁO CÁO LỌC ẢNH (Lọc Tên) — Books View ===", ""];
+    const lines = ["=== BÁO CÁO LỌC ẢNH (Lọc Tên) — Guikhach.com ===", ""];
     lines.push(`Yêu cầu: ${nameResult.requested} | Khớp: ${nameResult.matched} | Đã copy: ${nameResult.copied}`);
     for (const f of nameResult.copiedFiles.filter((f) => f.action !== "skipped")) lines.push(`  ✓ ${f.fileName}`);
     for (const n of nameResult.notFound) lines.push(`  ✗ ${n} → Không tìm thấy`);

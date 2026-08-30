@@ -1,6 +1,6 @@
 // Reads publicly-shared ("Anyone with the link") Google Drive folders using
 // only an API key — no OAuth, no per-studio login. The studio just shares a
-// Drive folder as link-viewable and pastes the link into Books View.
+// Drive folder as link-viewable and pastes the link into Guikhach.com.
 
 import { prisma } from "@/lib/db";
 

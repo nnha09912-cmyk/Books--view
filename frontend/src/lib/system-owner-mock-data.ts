@@ -2,7 +2,7 @@
  * database yet (see project decision: build the UI first, connect real
  * Studio/Album/Photo data later). Kept in its own file, separate from
  * `lib/mock-data.ts`, so nothing here can be confused with or accidentally
- * imported by the real Books View admin pages. */
+ * imported by the real Guikhach.com admin pages. */
 
 export type OwnerUserType = "Customer" | "Studio Admin";
 export type OwnerStatus = "Active" | "Review" | "Suspended";

@@ -132,7 +132,7 @@ export default function AlbumDetailPage({
             </div>
             <div className="flex gap-sm">
               <ShareAlbumDialog albumName={album.name} linkToken={album.linkToken} />
-              <Button asChild>
+              <Button asChild className="admin-lift-btn">
                 <Link href={`/album/${album.linkToken}/gallery`}>Xem như khách</Link>
               </Button>
             </div>
@@ -572,6 +572,7 @@ function GalleryTab({
             <Button
               variant="secondary"
               size="sm"
+              className="admin-lift-btn"
               onClick={enterReorderMode}
               disabled={album.photos.length < 2}
             >
@@ -580,6 +581,7 @@ function GalleryTab({
             <Button
               variant="secondary"
               size="sm"
+              className="admin-lift-btn"
               onClick={handleOptimize}
               disabled={optimizing}
               title="Tạo lại ảnh xem trước cho các ảnh cũ chưa được tối ưu — sửa lỗi vỡ/sọc hình khi ảnh gốc quá lớn"
@@ -588,6 +590,7 @@ function GalleryTab({
             </Button>
             <Button
               size="sm"
+              className="admin-lift-btn"
               onClick={album.googleDriveFolderId ? handleDriveSync : handleSync}
               disabled={syncing || (!album.googleDriveFolderId && !fsSupported)}
               title={album.googleDriveFolderId ? formatLastSync(album.lastGoogleSyncAt) : undefined}
@@ -597,7 +600,7 @@ function GalleryTab({
             </Button>
             <Dialog open={driveOpen} onOpenChange={setDriveOpen}>
               <DialogTrigger asChild>
-                <Button variant="secondary" size="sm">
+                <Button variant="secondary" size="sm" className="admin-lift-btn">
                   <HardDrive size={14} />
                   Nhập từ Google Drive
                 </Button>
@@ -1165,6 +1168,7 @@ function ExportTab({ album }: { album: AlbumDetail }) {
             </p>
             <Button
               variant="secondary"
+              className="admin-lift-btn admin-lift-btn--flat"
               onClick={() => toast("Xuất file chưa được nối trong bản demo này")}
             >
               {c.cta}

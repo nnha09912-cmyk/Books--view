@@ -31,6 +31,16 @@ export function ClassicHero({
           src: url("/fonts/BHN-Roses-Bolero.otf") format("opentype");
           font-display: swap;
         }
+        @font-face {
+          font-family: "SG85 Hien Khanh";
+          src: url("/fonts/SG85-HIENKHANH1.ttf") format("truetype");
+          font-display: swap;
+        }
+        @font-face {
+          font-family: "TikTok Sans 28pt";
+          src: url("/fonts/TikTokSans28pt-Regular.ttf") format("truetype");
+          font-display: swap;
+        }
         .tpl-classic {
           position: relative; min-height: calc(100vh - var(--header-h));
           display: flex; align-items: center; justify-content: center;
@@ -54,9 +64,19 @@ export function ClassicHero({
         .tpl-classic .desc { font-family: "SF Display Thin", "EB Garamond", serif; font-size: 17px; line-height: 1.7; color: #4a4638; }
         .tpl-classic .cta {
           margin-top: 6px; padding: 13px 36px; border: 1px solid #7a2e2e; color: #7a2e2e;
+          font-family: "SG85 Hien Khanh", "EB Garamond", serif;
           font-size: 14.5px; letter-spacing: 0.03em; text-decoration: none;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1225);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        .tpl-classic .foot { font-size: 13px; color: #8a7f68; margin-top: 2px; }
+        .tpl-classic .cta:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 7px rgba(0,0,0,0.1715);
+        }
+        .tpl-classic .foot {
+          font-family: "TikTok Sans 28pt", "EB Garamond", sans-serif;
+          font-size: 13px; color: #8a7f68; margin-top: 2px;
+        }
       `}</style>
       <div className="surface">
         <span className="eyebrow">Welcome to our wedding album</span>

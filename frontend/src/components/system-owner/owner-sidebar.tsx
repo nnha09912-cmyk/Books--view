@@ -25,7 +25,7 @@ const navItems = [
 ];
 
 /** Sidebar for the System Owner area — a separate component from the real
- * `Sidebar` (Books View's Studio-facing one), not a variant of it, so
+ * `Sidebar` (Guikhach.com's Studio-facing one), not a variant of it, so
  * nothing here can affect the existing admin nav. */
 export function OwnerSidebar() {
   const pathname = usePathname();

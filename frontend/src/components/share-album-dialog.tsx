@@ -96,7 +96,7 @@ export function ShareAlbumDialog({
     <Dialog>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button variant="secondary">
+          <Button variant="secondary" className="admin-lift-btn">
             <Share2 size={16} />
             Chia sẻ
           </Button>

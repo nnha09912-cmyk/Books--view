@@ -98,7 +98,7 @@ export function EditorialHero({
           {ctaLabel} →
         </Link>
       </div>
-      <div className="foot">Books View — Wedding Story — Không cần đăng nhập</div>
+      <div className="foot">Guikhach.com — Wedding Story — Không cần đăng nhập</div>
     </div>
   );
 }

@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
     >
       <div className="brand">
         <BrandMark />
-        <span className="name">Books View</span>
+        <span className="name">Guikhach.com</span>
       </div>
 
       <h1 style={{ fontSize: 26, marginBottom: 6 }}>Đặt lại mật khẩu</h1>
