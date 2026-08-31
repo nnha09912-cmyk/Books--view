@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -15,11 +16,13 @@ function pad(n: number) {
  * visual-reference-3.png the unnamed "MAISON STUDIO"-style card). Huge
  * black magazine headline, a numbered editorial list of Albums (01/02/03…)
  * instead of a plain grid, big monogram letter accent — fashion-editorial. */
-export function EditorialMagazineWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function EditorialMagazineWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
   const monogram = studio.name.trim().charAt(0).toUpperCase() || "S";
 
   return (
@@ -68,6 +71,21 @@ export function EditorialMagazineWebsite({ studio, sections, albums, featuredPho
         .tpl-web-editorial .em-about { display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: center; }
         .tpl-web-editorial .em-about p { font-size: 14.5px; color: #4a4844; line-height: 1.85; max-width: 540px; margin: 0; }
         .tpl-web-editorial .em-monogram { font-family: "Archivo", sans-serif; font-weight: 900; font-size: 96px; line-height: 1; color: #171613; }
+
+        .tpl-web-editorial .em-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+        .tpl-web-editorial .em-plan { border: 1px solid #1717131a; overflow: hidden; background: #fff; }
+        .tpl-web-editorial .em-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-editorial .em-plan-name { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+        .tpl-web-editorial .em-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-editorial .em-plan-price strong { font-family: "Archivo", sans-serif; font-weight: 900; font-size: 17px; }
+        .tpl-web-editorial .em-plan-price span { font-size: 11px; color: #a09c8e; }
+        .tpl-web-editorial .em-plan-head svg { color: #a09c8e; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-editorial .em-plan.open .em-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-editorial .em-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-editorial .em-plan.open .em-plan-body { max-height: 320px; }
+        .tpl-web-editorial .em-plan-body-inner { padding: 0 20px 18px; }
+        .tpl-web-editorial .em-plan-body p { font-size: 13px; color: #4a4844; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-editorial .em-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #302e29; line-height: 1.9; }
 
         .tpl-web-editorial .em-contact { background: #171613; color: #f6f4f0; padding: 44px 48px 22px; }
         .tpl-web-editorial .em-contact-row { display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #c8c5bb; margin-bottom: 18px; }
@@ -155,6 +173,48 @@ export function EditorialMagazineWebsite({ studio, sections, albums, featuredPho
             <p style={{ marginTop: 16 }}>{studio.description}</p>
           </div>
           <div className="em-monogram">{monogram}</div>
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="em-section" id="pricing">
+          <div className="em-section-head">
+            <span className="em-eyebrow">Bảng giá</span>
+            <h2>Các gói dịch vụ</h2>
+          </div>
+          <div className="em-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`em-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="em-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="em-plan-name">{plan.name}</span>
+                    <div className="em-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="em-plan-body">
+                    <div className="em-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

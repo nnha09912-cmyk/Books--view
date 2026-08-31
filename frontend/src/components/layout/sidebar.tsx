@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Images, Filter, Settings, LogOut, Globe } from "lucide-react";
@@ -19,6 +20,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { studio } = useStudio();
+  const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
 
   async function handleLogout() {
     await api("/api/auth/logout", { method: "POST" });
@@ -49,11 +51,14 @@ export function Sidebar() {
           <WebsiteShareDialog
             slug={studio.slug}
             studioName={studio.name || studio.ownerName || "studio"}
+            open={websiteDialogOpen}
+            onOpenChange={setWebsiteDialogOpen}
             trigger={
               <button
                 type="button"
                 className="nav-item"
                 style={{ width: "100%", border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}
+                onClick={() => setWebsiteDialogOpen(true)}
               >
                 <Globe size={18} />
                 Wed Studio

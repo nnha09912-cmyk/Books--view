@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Camera, Lightbulb, LayoutGrid, HeartHandshake, ShoppingBag, Phone, Mail, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Camera, Lightbulb, LayoutGrid, HeartHandshake, ShoppingBag, Phone, Mail, MapPin, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -11,11 +12,13 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * visual-reference-2.png "PRODUCT STUDIO"). Cream/beige e-commerce feel:
  * a product-style hero, a feature-icon row, Albums shown as "Danh mục sản
  * phẩm" categories, featuredPhotos as "Sản phẩm nổi bật" — commercial. */
-export function ProductWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function ProductWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-product">
@@ -71,6 +74,21 @@ export function ProductWebsite({ studio, sections, albums, featuredPhotos }: Web
         .tpl-web-product .pr-about p { font-size: 14.5px; color: #6b5f4d; line-height: 1.85; max-width: 480px; margin: 0 0 18px; }
         .tpl-web-product .pr-about-photo { width: 220px; aspect-ratio: 4/3; border-radius: 14px; overflow: hidden; background: #ecdfc6; }
         .tpl-web-product .pr-about-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+        .tpl-web-product .pr-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; text-align: left; }
+        .tpl-web-product .pr-plan { border: 1px solid #e6dcc8; border-radius: 10px; overflow: hidden; background: #fff; }
+        .tpl-web-product .pr-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-product .pr-plan-name { font-size: 14px; font-weight: 700; }
+        .tpl-web-product .pr-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-product .pr-plan-price strong { font-size: 17px; color: #a8875a; }
+        .tpl-web-product .pr-plan-price span { font-size: 11px; color: #8a7c65; }
+        .tpl-web-product .pr-plan-head svg { color: #a8875a; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-product .pr-plan.open .pr-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-product .pr-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-product .pr-plan.open .pr-plan-body { max-height: 320px; }
+        .tpl-web-product .pr-plan-body-inner { padding: 0 20px 16px; }
+        .tpl-web-product .pr-plan-body p { font-size: 13px; color: #6b5f4d; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-product .pr-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #2e2620; line-height: 1.9; }
 
         .tpl-web-product .pr-contact { background: #2e2620; color: #f7f1e7; padding: 44px 48px 22px; }
         .tpl-web-product .pr-contact-row { display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #cbbfa8; margin-bottom: 18px; }
@@ -181,6 +199,48 @@ export function ProductWebsite({ studio, sections, albums, featuredPhotos }: Web
               <img src={featuredPhotos[1]} alt="" />
             </div>
           )}
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="pr-section" id="pricing">
+          <div className="pr-section-head">
+            <span className="pr-eyebrow">Bảng giá</span>
+            <h2>Các gói dịch vụ</h2>
+          </div>
+          <div className="pr-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`pr-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="pr-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="pr-plan-name">{plan.name}</span>
+                    <div className="pr-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="pr-plan-body">
+                    <div className="pr-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

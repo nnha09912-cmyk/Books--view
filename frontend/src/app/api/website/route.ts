@@ -59,6 +59,7 @@ export async function GET() {
     slug: studio.slug,
     templateId: website?.templateId ?? DEFAULT_WEBSITE_TEMPLATE,
     status: website?.status ?? "draft",
+    tagline: studio.tagline,
     coverPhotoId: studio.coverPhotoId,
     coverUrl: coverPhoto ? (coverPhoto.previewUrl ?? coverPhoto.originalUrl ?? null) : null,
     featuredPhotos: featuredPhotos.map((p) => ({
@@ -80,6 +81,7 @@ const bodySchema = z.object({
   coverPhotoId: z.string().uuid().nullable().optional(),
   featuredPhotoIds: z.array(z.string().uuid()).max(24).optional(),
   demoAlbumIds: z.array(z.string().uuid()).optional(),
+  tagline: z.string().trim().max(200).nullable().optional(),
 });
 
 /** Upserts the Studio's Website row (creating a draft one on first save)
@@ -94,7 +96,7 @@ export async function PATCH(req: NextRequest) {
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError("Dữ liệu không hợp lệ", 400);
-  const { templateId, coverPhotoId, featuredPhotoIds, demoAlbumIds } = parsed.data;
+  const { templateId, coverPhotoId, featuredPhotoIds, demoAlbumIds, tagline } = parsed.data;
 
   if (coverPhotoId) {
     const owned = await prisma.photo.findFirst({
@@ -123,8 +125,14 @@ export async function PATCH(req: NextRequest) {
   }
 
   await prisma.$transaction(async (tx) => {
-    if (coverPhotoId !== undefined) {
-      await tx.studio.update({ where: { id: studio.id }, data: { coverPhotoId } });
+    if (coverPhotoId !== undefined || tagline !== undefined) {
+      await tx.studio.update({
+        where: { id: studio.id },
+        data: {
+          ...(coverPhotoId !== undefined ? { coverPhotoId } : {}),
+          ...(tagline !== undefined ? { tagline } : {}),
+        },
+      });
     }
     if (demoAlbumIds !== undefined) {
       const demoSet = new Set(demoAlbumIds);

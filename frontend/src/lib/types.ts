@@ -58,6 +58,7 @@ export interface PublicWebsiteInfo {
     slug: string;
     logoUrl: string | null;
     cover: string | null;
+    tagline: string | null;
     description: string | null;
     address: string | null;
     phone: string | null;
@@ -81,6 +82,16 @@ export interface PublicWebsiteInfo {
     linkToken: string;
     coverUrl: string | null;
   }[];
+  pricingPlans: WebsitePricingPlanSummary[];
+}
+
+export interface WebsitePricingPlanSummary {
+  id: string;
+  name: string;
+  price: string;
+  unit: string | null;
+  description: string | null;
+  features: string[];
 }
 
 export interface AlbumDetail {

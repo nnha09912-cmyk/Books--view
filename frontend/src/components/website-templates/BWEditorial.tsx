@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -11,11 +12,13 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * template-04-*.md, visual-reference-4.png "R STUDIO"). Black background,
  * every photo forced grayscale, split hero (bold headline left / portrait
  * right), fashion-magazine feel — art photography, not warmth. */
-export function BWEditorialWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function BWEditorialWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-bw">
@@ -61,6 +64,21 @@ export function BWEditorialWebsite({ studio, sections, albums, featuredPhotos }:
         .tpl-web-bw .bw-album-card p { font-size: 12px; color: #8a8a8a; margin: 0; }
 
         .tpl-web-bw .bw-about p { font-size: 15px; color: #d0d0d0; line-height: 1.8; max-width: 640px; }
+
+        .tpl-web-bw .bw-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+        .tpl-web-bw .bw-plan { border: 1px solid #232323; overflow: hidden; background: #141414; }
+        .tpl-web-bw .bw-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-bw .bw-plan-name { font-size: 14px; font-weight: 800; text-transform: uppercase; }
+        .tpl-web-bw .bw-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-bw .bw-plan-price strong { font-size: 17px; color: #fff; }
+        .tpl-web-bw .bw-plan-price span { font-size: 11px; color: #8a8a8a; }
+        .tpl-web-bw .bw-plan-head svg { color: #8a8a8a; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-bw .bw-plan.open .bw-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-bw .bw-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-bw .bw-plan.open .bw-plan-body { max-height: 320px; }
+        .tpl-web-bw .bw-plan-body-inner { padding: 0 20px 18px; }
+        .tpl-web-bw .bw-plan-body p { font-size: 13px; color: #b5b5b5; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-bw .bw-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #d0d0d0; line-height: 1.9; }
 
         .tpl-web-bw .bw-contact { border-top: 1px solid #232323; padding: 48px 48px 24px; }
         .tpl-web-bw .bw-contact-row { display: flex; gap: 28px; flex-wrap: wrap; font-size: 13px; color: #b5b5b5; margin-bottom: 20px; }
@@ -141,6 +159,48 @@ export function BWEditorialWebsite({ studio, sections, albums, featuredPhotos }:
             <h2>{studio.name}</h2>
           </div>
           <p>{studio.description}</p>
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="bw-section" id="pricing">
+          <div className="bw-section-head">
+            <span className="bw-eyebrow">Bảng giá</span>
+            <h2>Các gói dịch vụ</h2>
+          </div>
+          <div className="bw-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`bw-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="bw-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="bw-plan-name">{plan.name}</span>
+                    <div className="bw-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="bw-plan-body">
+                    <div className="bw-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

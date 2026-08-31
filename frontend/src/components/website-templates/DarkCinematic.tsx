@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -11,11 +12,13 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * visual-reference-4.png "AB STUDIO"). Full-bleed dark hero photo with a
  * bottom-left text block, charcoal background throughout, white outline
  * CTA, small captioned album grid — cinematic, premium, high contrast. */
-export function DarkCinematicWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function DarkCinematicWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-dark">
@@ -80,6 +83,21 @@ export function DarkCinematicWebsite({ studio, sections, albums, featuredPhotos 
         .tpl-web-dark .dc-about h2 { font-family: "Jost", sans-serif; font-weight: 700; font-size: 26px; margin: 0 0 16px; text-transform: uppercase; }
         .tpl-web-dark .dc-about p { font-size: 15px; color: #cfcac0; line-height: 1.8; margin: 0; }
         .tpl-web-dark .dc-about img { width: 100%; aspect-ratio: 4/3; object-fit: cover; filter: grayscale(0.3); }
+
+        .tpl-web-dark .dc-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
+        .tpl-web-dark .dc-plan { border: 1px solid #232326; border-radius: 8px; overflow: hidden; background: #17171a; }
+        .tpl-web-dark .dc-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-dark .dc-plan-name { font-family: "Jost", sans-serif; font-size: 14px; font-weight: 600; }
+        .tpl-web-dark .dc-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-dark .dc-plan-price strong { font-family: "Jost", sans-serif; font-size: 17px; color: #f3f1ec; }
+        .tpl-web-dark .dc-plan-price span { font-size: 11px; color: #8f8a7f; }
+        .tpl-web-dark .dc-plan-head svg { color: #8f8a7f; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-dark .dc-plan.open .dc-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-dark .dc-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-dark .dc-plan.open .dc-plan-body { max-height: 320px; }
+        .tpl-web-dark .dc-plan-body-inner { padding: 0 20px 18px; }
+        .tpl-web-dark .dc-plan-body p { font-size: 13px; color: #b5b0a6; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-dark .dc-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cfcac0; line-height: 1.9; }
 
         .tpl-web-dark .dc-contact { background: #050506; padding: 56px 48px 28px; }
         .tpl-web-dark .dc-contact-grid { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 32px; padding-bottom: 28px; }
@@ -163,6 +181,48 @@ export function DarkCinematicWebsite({ studio, sections, albums, featuredPhotos 
             <p>{studio.description}</p>
           </div>
           {featuredPhotos[0] && <img src={featuredPhotos[0]} alt="" />}
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="dc-section" id="pricing">
+          <div className="dc-section-head">
+            <span className="dc-eyebrow">Bảng giá</span>
+            <h2>Các gói dịch vụ</h2>
+          </div>
+          <div className="dc-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`dc-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="dc-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="dc-plan-name">{plan.name}</span>
+                    <div className="dc-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="dc-plan-body">
+                    <div className="dc-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

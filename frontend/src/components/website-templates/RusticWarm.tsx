@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -11,11 +12,13 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * visual-reference-3.png "TERRA STUDIO"). Full-bleed warm sepia hero photo
  * with a dark gradient, italic script-style headline, earthy amber CTA —
  * golden-hour, natural, countryside feel. */
-export function RusticWarmWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function RusticWarmWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-rustic">
@@ -64,6 +67,21 @@ export function RusticWarmWebsite({ studio, sections, albums, featuredPhotos }: 
 
         .tpl-web-rustic .rw-about { text-align: center; }
         .tpl-web-rustic .rw-about p { font-size: 15px; color: #5a4a38; line-height: 1.85; max-width: 600px; margin: 0 auto; }
+
+        .tpl-web-rustic .rw-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; text-align: left; }
+        .tpl-web-rustic .rw-plan { border: 1px solid #e8dcc8; border-radius: 8px; overflow: hidden; background: #fff; }
+        .tpl-web-rustic .rw-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-rustic .rw-plan-name { font-size: 14px; font-weight: 700; }
+        .tpl-web-rustic .rw-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-rustic .rw-plan-price strong { font-size: 17px; color: #c17a44; }
+        .tpl-web-rustic .rw-plan-price span { font-size: 11px; color: #8a7458; }
+        .tpl-web-rustic .rw-plan-head svg { color: #ad8656; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-rustic .rw-plan.open .rw-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-rustic .rw-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-rustic .rw-plan.open .rw-plan-body { max-height: 320px; }
+        .tpl-web-rustic .rw-plan-body-inner { padding: 0 20px 16px; }
+        .tpl-web-rustic .rw-plan-body p { font-size: 13px; color: #7a6650; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-rustic .rw-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #5a4a38; line-height: 1.9; }
 
         .tpl-web-rustic .rw-contact { background: #3d2f22; color: #f7f0e6; padding: 44px 48px 22px; }
         .tpl-web-rustic .rw-contact-row { display: flex; justify-content: center; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #d9c6ab; margin-bottom: 18px; }
@@ -137,6 +155,48 @@ export function RusticWarmWebsite({ studio, sections, albums, featuredPhotos }: 
             <h2>Về {studio.name}</h2>
           </div>
           <p>{studio.description}</p>
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="rw-section" id="pricing">
+          <div className="rw-section-head">
+            <span className="rw-eyebrow">Bảng giá</span>
+            <h2>Các gói dịch vụ</h2>
+          </div>
+          <div className="rw-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`rw-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="rw-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="rw-plan-name">{plan.name}</span>
+                    <div className="rw-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="rw-plan-body">
+                    <div className="rw-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

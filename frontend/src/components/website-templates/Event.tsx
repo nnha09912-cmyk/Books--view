@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin, Sparkles, Video, Radio, Film } from "lucide-react";
+import { useState } from "react";
+import { Phone, Mail, MapPin, Sparkles, Video, Radio, Film, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -11,11 +12,13 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * visual-reference-2.png "EVENT STUDIO"). Black + gold, cinematic
  * full-bleed hero, Albums shown as "Sự kiện nổi bật" cards, a static
  * services row (per the reference's own icon set) — corporate/event feel. */
-export function EventWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function EventWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-event">
@@ -74,6 +77,21 @@ export function EventWebsite({ studio, sections, albums, featuredPhotos }: Websi
         .tpl-web-event .ev-grid img { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; }
 
         .tpl-web-event .ev-about p { font-size: 15px; color: #cfc7b3; line-height: 1.85; max-width: 640px; margin: 0 auto; text-align: center; }
+
+        .tpl-web-event .ev-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
+        .tpl-web-event .ev-plan { border: 1px solid #221f16; overflow: hidden; background: #141310; }
+        .tpl-web-event .ev-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-event .ev-plan-name { font-size: 14px; font-weight: 700; }
+        .tpl-web-event .ev-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-event .ev-plan-price strong { font-size: 17px; color: #c9a154; }
+        .tpl-web-event .ev-plan-price span { font-size: 11px; color: #a89f8a; }
+        .tpl-web-event .ev-plan-head svg { color: #a89f8a; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-event .ev-plan.open .ev-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-event .ev-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-event .ev-plan.open .ev-plan-body { max-height: 320px; }
+        .tpl-web-event .ev-plan-body-inner { padding: 0 20px 18px; }
+        .tpl-web-event .ev-plan-body p { font-size: 13px; color: #a89f8a; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-event .ev-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cfc7b3; line-height: 1.9; }
 
         .tpl-web-event .ev-contact { background: #050505; padding: 44px 48px 22px; }
         .tpl-web-event .ev-contact-row { display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #a89f8a; margin-bottom: 18px; }
@@ -175,6 +193,48 @@ export function EventWebsite({ studio, sections, albums, featuredPhotos }: Websi
             {featuredPhotos.map((url) => (
               <img key={url} src={url} alt="" />
             ))}
+          </div>
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="ev-section" id="pricing">
+          <div className="ev-section-head">
+            <span className="ev-eyebrow">Bảng giá</span>
+            <h2>Các gói dịch vụ</h2>
+          </div>
+          <div className="ev-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`ev-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="ev-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="ev-plan-name">{plan.name}</span>
+                    <div className="ev-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="ev-plan-body">
+                    <div className="ev-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

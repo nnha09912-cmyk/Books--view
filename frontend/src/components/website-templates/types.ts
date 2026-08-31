@@ -19,11 +19,25 @@ export interface WebsiteSectionData {
   settings: Record<string, unknown> | null;
 }
 
+/** A Studio's own service-price entry (Settings → Website Studio → Bảng
+ * giá) — what THEY charge THEIR clients, not this SaaS's own billing. Only
+ * templates built to show a price list read this (most templates ignore
+ * it, same as any other prop they don't use). */
+export interface WebsitePricingPlanData {
+  id: string;
+  name: string;
+  price: string;
+  unit: string | null;
+  description: string | null;
+  features: string[];
+}
+
 export interface WebsiteStudioProfile {
   name: string;
   slug: string;
   logoUrl: string | null;
   cover: string | null;
+  tagline: string | null;
   description: string | null;
   address: string | null;
   phone: string | null;
@@ -44,4 +58,5 @@ export interface WebsiteTemplateProps {
    * from Album covers, since "ảnh nổi bật" is its own curated set, not
    * automatically every Album's cover photo. */
   featuredPhotos: string[];
+  pricingPlans: WebsitePricingPlanData[];
 }

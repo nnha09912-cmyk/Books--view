@@ -47,6 +47,7 @@ export default function StudioWebsitePage({
       sections={data.sections}
       albums={data.albums}
       featuredPhotos={data.featuredPhotos}
+      pricingPlans={data.pricingPlans}
     />
   );
 }

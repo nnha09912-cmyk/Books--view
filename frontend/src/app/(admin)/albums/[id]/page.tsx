@@ -654,7 +654,15 @@ function GalleryTab({
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={(e) => handleDrop(e, index)}
               style={{
-                aspectRatio: "1/1",
+                width: "100%",
+                height: 0,
+                // `aspect-ratio` on a grid item with `overflow: hidden` lets
+                // some browsers size the grid's auto row-track from the
+                // (near-zero) intrinsic content instead of the ratio, so the
+                // tile visually overflows into the row below it — the
+                // padding-bottom trick sizes the box from its own width via
+                // plain box-model math, immune to that.
+                paddingBottom: "100%",
                 borderRadius: 6,
                 overflow: "hidden",
                 position: "relative",

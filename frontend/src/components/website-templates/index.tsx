@@ -17,6 +17,7 @@ import { BoldModernWebsite } from "./BoldModern";
 import { YearbookWebsite } from "./Yearbook";
 import { EventWebsite } from "./Event";
 import { ProductWebsite } from "./Product";
+import { LandingShowcaseWebsite } from "./LandingShowcase";
 
 export type { WebsiteTemplateProps } from "./types";
 
@@ -45,4 +46,5 @@ export const WEBSITE_TEMPLATE_COMPONENTS: Record<
   yearbook: YearbookWebsite,
   event: EventWebsite,
   product: ProductWebsite,
+  "landing-showcase": LandingShowcaseWebsite,
 };

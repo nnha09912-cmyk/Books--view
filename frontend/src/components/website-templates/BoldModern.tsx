@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -11,11 +12,13 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * visual-reference-3.png "VISION STUDIO"). Black background, oversized
  * bold headline, a single vivid red accent (CTA + numbered tag), tight
  * grayscale-with-red-highlight grid — loud, confident, high-fashion. */
-export function BoldModernWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function BoldModernWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-bold">
@@ -66,6 +69,21 @@ export function BoldModernWebsite({ studio, sections, albums, featuredPhotos }: 
         .tpl-web-bold .bm-album-card p { font-size: 12px; color: #777; margin: 0; }
 
         .tpl-web-bold .bm-about p { font-size: 15px; color: #ccc; line-height: 1.8; max-width: 640px; }
+
+        .tpl-web-bold .bm-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+        .tpl-web-bold .bm-plan { border: 1px solid #1e1e1e; overflow: hidden; background: #111; }
+        .tpl-web-bold .bm-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-bold .bm-plan-name { font-weight: 800; font-size: 14px; text-transform: uppercase; }
+        .tpl-web-bold .bm-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-bold .bm-plan-price strong { font-weight: 900; font-size: 17px; color: #e2352b; }
+        .tpl-web-bold .bm-plan-price span { font-size: 11px; color: #666; }
+        .tpl-web-bold .bm-plan-head svg { color: #666; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-bold .bm-plan.open .bm-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-bold .bm-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-bold .bm-plan.open .bm-plan-body { max-height: 320px; }
+        .tpl-web-bold .bm-plan-body-inner { padding: 0 20px 18px; }
+        .tpl-web-bold .bm-plan-body p { font-size: 13px; color: #999; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-bold .bm-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #ccc; line-height: 1.9; }
 
         .tpl-web-bold .bm-contact { background: #050505; padding: 44px 48px 22px; }
         .tpl-web-bold .bm-contact-row { display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #999; margin-bottom: 18px; }
@@ -150,6 +168,48 @@ export function BoldModernWebsite({ studio, sections, albums, featuredPhotos }: 
             <span className="bm-eyebrow">Studio</span>
           </div>
           <p>{studio.description}</p>
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="bm-section" id="pricing">
+          <div className="bm-section-head">
+            <h2>Bảng giá</h2>
+            <span className="bm-eyebrow">Các gói dịch vụ</span>
+          </div>
+          <div className="bm-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`bm-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="bm-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="bm-plan-name">{plan.name}</span>
+                    <div className="bm-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="bm-plan-body">
+                    <div className="bm-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

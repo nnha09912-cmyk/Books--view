@@ -2,23 +2,33 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { LogOut, ExternalLink } from "lucide-react";
+import { LogOut, ExternalLink, Trash2, Plus, ChevronDown, X } from "lucide-react";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { useStudio } from "@/lib/use-studio";
 import { DEFAULT_AVATAR } from "@/lib/studio-name";
 import { api, ApiError } from "@/lib/api-client";
 import {
   WEBSITE_TEMPLATES,
+  EXPERIMENTAL_WEBSITE_TEMPLATES,
   DEFAULT_WEBSITE_TEMPLATE,
   isWebsiteTemplateId,
   isWebsiteTemplateBuilt,
+  TEMPLATE_SWATCHES,
   type WebsiteTemplateId,
 } from "@/lib/website-templates";
 
@@ -408,11 +418,21 @@ function WebsitePhotoPicker({
                       onClick={() => toggle(p.id)}
                       style={{
                         position: "relative",
-                        aspectRatio: "1/1",
+                        width: "100%",
+                        height: 0,
+                        padding: 0,
+                        // `aspect-ratio` on a grid item with `overflow: hidden`
+                        // lets some browsers size the auto row-track from the
+                        // (near-zero) intrinsic content instead of the ratio,
+                        // so the button visually overflows into rows below —
+                        // the padding-bottom trick sizes the box from its own
+                        // width via plain box-model math, immune to that.
+                        // Must come after `padding: 0` — it's a longhand
+                        // override of one side, not the shorthand itself.
+                        paddingBottom: "100%",
                         borderRadius: 6,
                         overflow: "hidden",
                         border: isPicked ? "2px solid var(--accent)" : "1px solid var(--border)",
-                        padding: 0,
                         cursor: "pointer",
                         background: "var(--muted)",
                       }}
@@ -422,7 +442,14 @@ function WebsitePhotoPicker({
                         <img
                           src={p.thumbnailUrl}
                           alt=""
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
                         />
                       )}
                     </button>
@@ -443,22 +470,346 @@ function WebsitePhotoPicker({
   );
 }
 
+interface PricingPlan {
+  id: string;
+  name: string;
+  price: string;
+  unit: string | null;
+  description: string | null;
+  features: string[];
+}
+
+const emptyPlanForm = { name: "", price: "", unit: "", description: "", features: "" };
+
+/** "Bảng giá" (Settings → Website Studio) — CRUD for the Studio's own
+ * price list, shown as a dropdown accordion on templates that support it
+ * (currently the Landing Page demo template). Saves immediately per action
+ * (create/update/delete each hit their own endpoint) rather than batching
+ * with the main "Lưu thay đổi" button below, since it's its own resource —
+ * same reasoning as Albums being managed on their own page elsewhere. */
+function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
+  const [plans, setPlans] = useState<PricingPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyPlanForm);
+  const [saving, setSaving] = useState(false);
+
+  function load() {
+    api<{ plans: PricingPlan[] }>("/api/website/pricing")
+      .then((res) => setPlans(res.plans))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(load, []);
+
+  function startAdd() {
+    setForm(emptyPlanForm);
+    setEditingId(null);
+    setAdding(true);
+  }
+
+  function startEdit(plan: PricingPlan) {
+    setForm({
+      name: plan.name,
+      price: plan.price,
+      unit: plan.unit ?? "",
+      description: plan.description ?? "",
+      features: plan.features.join("\n"),
+    });
+    setEditingId(plan.id);
+    setAdding(true);
+  }
+
+  function cancelForm() {
+    setAdding(false);
+    setEditingId(null);
+    setForm(emptyPlanForm);
+  }
+
+  async function saveForm() {
+    if (!form.name.trim() || !form.price.trim()) {
+      toast("Vui lòng nhập tên gói và giá");
+      return;
+    }
+    setSaving(true);
+    const body = {
+      name: form.name.trim(),
+      price: form.price.trim(),
+      unit: form.unit.trim() || undefined,
+      description: form.description.trim() || undefined,
+      features: form.features
+        .split("\n")
+        .map((f) => f.trim())
+        .filter(Boolean),
+    };
+    try {
+      if (editingId) {
+        await api(`/api/website/pricing/${editingId}`, { method: "PATCH", body: JSON.stringify(body) });
+      } else {
+        await api("/api/website/pricing", { method: "POST", body: JSON.stringify(body) });
+      }
+      toast("Đã lưu gói giá");
+      cancelForm();
+      load();
+      onChanged();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không thể lưu gói giá");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removePlan(id: string) {
+    if (!window.confirm("Xoá gói giá này?")) return;
+    try {
+      await api(`/api/website/pricing/${id}`, { method: "DELETE" });
+      toast("Đã xoá gói giá");
+      load();
+      onChanged();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không thể xoá");
+    }
+  }
+
+  return (
+    <div className="card mb-md">
+      <div className="card-body lg">
+        <div className="flex justify-between items-center mb-md">
+          <div>
+            <h3 style={{ margin: 0 }}>Bảng giá</h3>
+            <p className="text-secondary text-sm" style={{ margin: "4px 0 0" }}>
+              Các gói dịch vụ studio cung cấp — dùng cho template Landing Page. Lưu ngay khi bấm Lưu gói.
+            </p>
+          </div>
+          {!adding && (
+            <Button variant="secondary" size="sm" onClick={startAdd}>
+              <Plus size={14} />
+              Thêm gói giá
+            </Button>
+          )}
+        </div>
+
+        {loading ? (
+          <p className="text-secondary text-sm">Đang tải...</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {plans.length === 0 && !adding && (
+              <p className="text-secondary text-sm">Chưa có gói giá nào.</p>
+            )}
+            {plans.map((plan) => (
+              <div
+                key={plan.id}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: 12,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{plan.name}</div>
+                  <div className="text-secondary text-sm">
+                    {plan.price}
+                    {plan.unit ? ` ${plan.unit}` : ""}
+                  </div>
+                </div>
+                <div className="flex gap-sm">
+                  <Button variant="ghost" size="sm" onClick={() => startEdit(plan)}>
+                    Sửa
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => removePlan(plan.id)}>
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+              </div>
+            ))}
+
+            {adding && (
+              <div
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <div className="field">
+                  <label>Tên gói</label>
+                  <input
+                    className="input"
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Gói Cơ Bản"
+                  />
+                </div>
+                <div className="flex gap-sm">
+                  <div className="field" style={{ flex: 1 }}>
+                    <label>Giá</label>
+                    <input
+                      className="input"
+                      value={form.price}
+                      onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                      placeholder="5.000.000đ"
+                    />
+                  </div>
+                  <div className="field" style={{ flex: 1 }}>
+                    <label>Đơn vị (không bắt buộc)</label>
+                    <input
+                      className="input"
+                      value={form.unit}
+                      onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                      placeholder="/ buổi chụp"
+                    />
+                  </div>
+                </div>
+                <div className="field">
+                  <label>Mô tả (không bắt buộc)</label>
+                  <textarea
+                    className="input"
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Mô tả ngắn về gói dịch vụ này"
+                  />
+                </div>
+                <div className="field">
+                  <label>Nội dung gói (mỗi dòng 1 mục)</label>
+                  <textarea
+                    className="input"
+                    value={form.features}
+                    onChange={(e) => setForm((f) => ({ ...f, features: e.target.value }))}
+                    placeholder={"200 ảnh đã chỉnh sửa\n1 album in ấn\nQuay phim 5 phút"}
+                    rows={4}
+                  />
+                </div>
+                <div className="flex gap-sm">
+                  <Button variant="secondary" size="sm" onClick={cancelForm}>
+                    Huỷ
+                  </Button>
+                  <Button size="sm" onClick={saveForm} disabled={saving}>
+                    {saving ? "Đang lưu..." : "Lưu gói"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Small "ảnh demo" swatch shown next to a template's name in the picker
+ * dropdown — a real rendering of that template's own bg/accent/text
+ * palette (no screenshot pipeline exists to generate an actual thumbnail
+ * from), not a placeholder box. */
+function TemplateSwatch({ id, size = 40 }: { id: WebsiteTemplateId; size?: number }) {
+  const s = TEMPLATE_SWATCHES[id];
+  return (
+    <div
+      style={{
+        width: size,
+        height: Math.round(size * 0.72),
+        borderRadius: 6,
+        background: s.bg,
+        border: "1px solid var(--border)",
+        overflow: "hidden",
+        flexShrink: 0,
+        position: "relative",
+      }}
+    >
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "42%", background: s.accent, opacity: 0.85 }} />
+      <div style={{ position: "absolute", left: "12%", top: "56%", width: "60%", height: "9%", background: s.text, opacity: 0.5, borderRadius: 2 }} />
+      <div style={{ position: "absolute", left: "12%", top: "72%", width: "38%", height: "9%", background: s.text, opacity: 0.3, borderRadius: 2 }} />
+    </div>
+  );
+}
+
+const ALL_WEBSITE_TEMPLATES = [...WEBSITE_TEMPLATES, ...EXPERIMENTAL_WEBSITE_TEMPLATES];
+
+/** Live "trang web demo trực tiếp" pane — an iframe of the actual public
+ * route (same `?previewTemplate=` override the "Xem trước" buttons always
+ * used), rendered at real desktop width (1280px) then scaled down to fit
+ * the column via a measured CSS transform, so what's shown is the real
+ * desktop layout shrunk, not the template's mobile breakpoint. Read-only
+ * (pointer-events disabled) — "Mở tab mới" is how you actually interact. */
+function LiveSitePreview({ url }: { url: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.3);
+  const FRAME_WIDTH = 1280;
+  const FRAME_HEIGHT = 900;
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setScale(el.clientWidth / FRAME_WIDTH);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: "100%",
+        minWidth: 0,
+        aspectRatio: `${FRAME_WIDTH} / ${FRAME_HEIGHT}`,
+        overflow: "hidden",
+        borderRadius: 8,
+        border: "1px solid var(--border)",
+        background: "#fff",
+      }}
+    >
+      <iframe
+        key={url}
+        src={url}
+        title="Xem trước website studio"
+        style={{
+          width: FRAME_WIDTH,
+          height: FRAME_HEIGHT,
+          border: "none",
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  );
+}
+
 function WebsiteStudioTab() {
   const { studio } = useStudio();
   const [loading, setLoading] = useState(true);
   const [slug, setSlug] = useState("");
   const [templateId, setTemplateId] = useState<WebsiteTemplateId>(DEFAULT_WEBSITE_TEMPLATE);
+  const [tagline, setTagline] = useState("");
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [featured, setFeatured] = useState<WebsiteFeaturedPhoto[]>([]);
   const [albums, setAlbums] = useState<WebsiteAlbumRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [picker, setPicker] = useState<"cover" | "featured" | null>(null);
+  // Bumped after any save (main "Lưu thay đổi" or a pricing-plan add/edit/
+  // delete) — folded into the live-preview iframe's URL below purely to
+  // force it to reload, since otherwise its src only ever changes when
+  // templateId changes and every other edit (tagline, cover, featured
+  // photos, albums, pricing) would sit saved in the DB but never show up
+  // in the preview pane until an unrelated template switch or a full page
+  // reload happened to remount the iframe.
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
   function load() {
     api<{
       slug: string;
       templateId: string;
+      tagline: string | null;
       coverPhotoId: string | null;
       coverUrl: string | null;
       featuredPhotos: WebsiteFeaturedPhoto[];
@@ -467,6 +818,7 @@ function WebsiteStudioTab() {
       .then((res) => {
         setSlug(res.slug);
         setTemplateId(isWebsiteTemplateId(res.templateId) ? res.templateId : DEFAULT_WEBSITE_TEMPLATE);
+        setTagline(res.tagline ?? "");
         setCoverPhotoId(res.coverPhotoId);
         setCoverUrl(res.coverUrl);
         setFeatured(res.featuredPhotos);
@@ -491,6 +843,7 @@ function WebsiteStudioTab() {
         method: "PATCH",
         body: JSON.stringify({
           templateId,
+          tagline: tagline.trim() || null,
           coverPhotoId,
           featuredPhotoIds: featured.map((f) => f.id),
           demoAlbumIds: demoAlbums.map((a) => a.id),
@@ -498,6 +851,7 @@ function WebsiteStudioTab() {
       });
       toast("Đã lưu cấu hình web con");
       load();
+      setPreviewRefreshKey((k) => k + 1);
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Không thể lưu");
     } finally {
@@ -508,170 +862,251 @@ function WebsiteStudioTab() {
   if (loading || !studio) return <p className="text-secondary">Đang tải...</p>;
 
   const previewUrl = `${origin}/${slug}`;
+  const livePreviewUrl = `${previewUrl}?previewTemplate=${templateId}&_r=${previewRefreshKey}`;
+  const selectedTemplate = ALL_WEBSITE_TEMPLATES.find((t) => t.value === templateId);
 
   return (
     <>
-      <div className="card mb-md">
-        <div className="card-body lg" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div className="flex justify-between items-center">
-            <h3 style={{ margin: 0 }}>Web con của studio</h3>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => window.open(previewUrl, "_blank")}
-            >
-              <ExternalLink size={14} />
-              Xem web con
-            </Button>
+      <style>{`
+        @media (max-width: 960px) {
+          .website-studio-grid { grid-template-columns: 1fr !important; }
+          .website-studio-preview { position: static !important; }
+        }
+      `}</style>
+      <div className="website-studio-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 24, alignItems: "start" }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="card mb-md">
+            <div className="card-body lg" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div className="flex justify-between items-center">
+                <h3 style={{ margin: 0 }}>Web con của studio</h3>
+                <Button variant="secondary" size="sm" onClick={() => window.open(previewUrl, "_blank")}>
+                  <ExternalLink size={14} />
+                  Xem web con
+                </Button>
+              </div>
+              <p className="text-secondary text-sm" style={{ margin: 0 }}>
+                Website riêng của studio tại <span className="mono">{previewUrl}</span> — gửi link này cho
+                khách xem trước (nút &quot;Wed Studio&quot; ở sidebar).
+              </p>
+            </div>
           </div>
-          <p className="text-secondary text-sm" style={{ margin: 0 }}>
-            Website riêng của studio tại <span className="mono">{previewUrl}</span> — gửi link này cho
-            khách xem trước (nút &quot;Wed Studio&quot; ở sidebar).
-          </p>
-        </div>
-      </div>
 
-      <div className="card mb-md">
-        <div className="card-body lg">
-          <h3 className="mb-md">Chọn Template</h3>
-          <p className="text-secondary text-sm mb-md">
-            Xem trước bằng dữ liệu thật của bạn trước khi chọn — chưa lưu cho tới khi bấm &quot;Lưu
-            thay đổi&quot;.
-          </p>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {WEBSITE_TEMPLATES.map((t) => {
-              const built = isWebsiteTemplateBuilt(t.value);
-              const selected = t.value === templateId;
-              return (
+          <div className="card mb-md">
+            <div className="card-body lg">
+              <h3 className="mb-md">Chọn Template</h3>
+              <p className="text-secondary text-sm mb-md">
+                Xem trực tiếp bên phải khi chọn — chưa lưu cho tới khi bấm &quot;Lưu thay đổi&quot;.
+              </p>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="input"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      cursor: "pointer",
+                      width: "100%",
+                      textAlign: "left",
+                    }}
+                  >
+                    <TemplateSwatch id={templateId} />
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{selectedTemplate?.label}</span>
+                    {!isWebsiteTemplateBuilt(templateId) && <Badge variant="secondary">Sắp có</Badge>}
+                    <ChevronDown size={16} className="text-secondary" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" style={{ width: 340, maxHeight: 380, overflowY: "auto" }}>
+                  {WEBSITE_TEMPLATES.map((t) => (
+                    <DropdownMenuItem
+                      key={t.value}
+                      onSelect={() => setTemplateId(t.value)}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, cursor: "pointer" }}
+                    >
+                      <TemplateSwatch id={t.value} />
+                      <span style={{ flex: 1, fontSize: 13 }}>{t.label}</span>
+                      {!isWebsiteTemplateBuilt(t.value) && (
+                        <Badge variant="secondary" style={{ flexShrink: 0 }}>
+                          Sắp có
+                        </Badge>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                    Mẫu thử nghiệm
+                  </DropdownMenuLabel>
+                  {EXPERIMENTAL_WEBSITE_TEMPLATES.map((t) => (
+                    <DropdownMenuItem
+                      key={t.value}
+                      onSelect={() => setTemplateId(t.value)}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, cursor: "pointer" }}
+                    >
+                      <TemplateSwatch id={t.value} />
+                      <span style={{ flex: 1, fontSize: 13 }}>{t.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          <div className="card mb-md">
+            <div className="card-body lg">
+              <div className="field" style={{ margin: 0 }}>
+                <label>Câu khẩu hiệu (Slogan)</label>
+                <input
+                  className="input"
+                  value={tagline}
+                  onChange={(e) => setTagline(e.target.value)}
+                  placeholder="Lưu giữ khoảnh khắc đẹp nhất của bạn"
+                  maxLength={200}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="card mb-md">
+            <div className="card-body lg">
+              <h3 className="mb-md">Ảnh bìa</h3>
+              <div className="flex items-center gap-md">
                 <div
-                  key={t.value}
                   style={{
-                    border: selected ? "2px solid var(--accent)" : "1px solid var(--border)",
-                    borderRadius: "var(--radius-sm)",
-                    padding: 12,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
+                    position: "relative",
+                    width: 96,
+                    height: 96,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: "var(--muted)",
+                    flexShrink: 0,
                   }}
                 >
-                  <div className="flex justify-between items-start gap-sm">
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>{t.label}</span>
-                    {!built && (
-                      <Badge variant="secondary" style={{ flexShrink: 0 }}>
-                        Sắp có
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex gap-sm">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => window.open(`${previewUrl}?previewTemplate=${t.value}`, "_blank")}
-                    >
-                      Xem trước
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={selected ? "default" : "secondary"}
-                      disabled={selected}
-                      onClick={() => setTemplateId(t.value)}
-                    >
-                      {selected ? "Đang dùng" : "Chọn"}
-                    </Button>
-                  </div>
+                  {coverUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={coverUrl}
+                      alt=""
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  )}
                 </div>
-              );
-            })}
+                <Button variant="secondary" size="sm" onClick={() => setPicker("cover")}>
+                  Chọn ảnh bìa
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div className="card mb-md">
-        <div className="card-body lg">
-          <h3 className="mb-md">Ảnh bìa</h3>
-          <div className="flex items-center gap-md">
-            <div
-              style={{
-                width: 96,
-                height: 96,
-                borderRadius: 8,
-                overflow: "hidden",
-                background: "var(--muted)",
-                flexShrink: 0,
-              }}
-            >
-              {coverUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <div className="card mb-md">
+            <div className="card-body lg">
+              <div className="flex justify-between items-center mb-md">
+                <h3 style={{ margin: 0 }}>Ảnh nổi bật (Portfolio)</h3>
+                <Button variant="secondary" size="sm" onClick={() => setPicker("featured")}>
+                  Chọn ảnh
+                </Button>
+              </div>
+              {featured.length === 0 ? (
+                <p className="text-secondary text-sm">Chưa chọn ảnh nào.</p>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+                  {featured.map((f) => (
+                    <div
+                      key={f.id}
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        height: 0,
+                        paddingBottom: "100%",
+                        borderRadius: 6,
+                        overflow: "hidden",
+                        background: "var(--muted)",
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={f.url}
+                        alt=""
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFeatured((prev) => prev.filter((p) => p.id !== f.id))}
+                        aria-label="Bỏ ảnh này"
+                        style={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          background: "rgba(0,0,0,0.6)",
+                          color: "#fff",
+                          border: "none",
+                          padding: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-            <Button variant="secondary" size="sm" onClick={() => setPicker("cover")}>
-              Chọn ảnh bìa
-            </Button>
           </div>
-        </div>
-      </div>
 
-      <div className="card mb-md">
-        <div className="card-body lg">
-          <div className="flex justify-between items-center mb-md">
-            <h3 style={{ margin: 0 }}>Ảnh nổi bật (Portfolio)</h3>
-            <Button variant="secondary" size="sm" onClick={() => setPicker("featured")}>
-              Chọn ảnh
-            </Button>
-          </div>
-          {featured.length === 0 ? (
-            <p className="text-secondary text-sm">Chưa chọn ảnh nào.</p>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
-              {featured.map((f) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={f.id}
-                  src={f.url}
-                  alt=""
-                  style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: 6 }}
-                />
-              ))}
+          <div className="card mb-md">
+            <div className="card-body lg">
+              <h3 className="mb-md">Album demo</h3>
+              <p className="text-secondary text-sm mb-md">Chọn album nào hiện trên web con.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {albums.map((a) => (
+                  <label
+                    key={a.id}
+                    className="flex items-center gap-sm"
+                    style={{ cursor: "pointer", fontSize: 13 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={a.showOnWebsite}
+                      onChange={() => toggleAlbum(a.id)}
+                    />
+                    {a.name}
+                    <span className="text-secondary">({a.photoCount} ảnh)</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      <div className="card mb-md">
-        <div className="card-body lg">
-          <h3 className="mb-md">Album demo</h3>
-          <p className="text-secondary text-sm mb-md">Chọn album nào hiện trên web con.</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {albums.map((a) => (
-              <label
-                key={a.id}
-                className="flex items-center gap-sm"
-                style={{ cursor: "pointer", fontSize: 13 }}
-              >
-                <input
-                  type="checkbox"
-                  checked={a.showOnWebsite}
-                  onChange={() => toggleAlbum(a.id)}
-                />
-                {a.name}
-                <span className="text-secondary">({a.photoCount} ảnh)</span>
-              </label>
-            ))}
+          <WebsitePricingCard onChanged={() => setPreviewRefreshKey((k) => k + 1)} />
+
+          <div className="modal-foot">
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Đang lưu..." : "Lưu thay đổi"}
+            </Button>
           </div>
         </div>
-      </div>
 
-      <div className="modal-foot">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? "Đang lưu..." : "Lưu thay đổi"}
-        </Button>
+        <div className="website-studio-preview" style={{ position: "sticky", top: 84, minWidth: 0 }}>
+          <div className="card">
+            <div className="card-body lg" style={{ padding: 12 }}>
+              <div className="flex justify-between items-center mb-sm">
+                <span style={{ fontSize: 12, fontWeight: 600 }} className="text-secondary">
+                  Xem trước trực tiếp
+                </span>
+                <Button variant="ghost" size="sm" onClick={() => window.open(livePreviewUrl, "_blank")}>
+                  <ExternalLink size={13} />
+                </Button>
+              </div>
+              <LiveSitePreview url={livePreviewUrl} />
+            </div>
+          </div>
+        </div>
       </div>
 
       <WebsitePhotoPicker
@@ -695,12 +1130,19 @@ function WebsiteStudioTab() {
   );
 }
 
+const SETTINGS_TABS = ["profile", "website", "billing", "api", "notif"] as const;
+
 export default function SettingsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab = (SETTINGS_TABS as readonly string[]).includes(tabParam ?? "") ? tabParam! : "profile";
+
   return (
     <AdminShell>
       <h1 className="mb-lg">Cài đặt</h1>
 
-      <Tabs defaultValue="profile">
+      <Tabs value={activeTab} onValueChange={(v) => router.replace(`/settings?tab=${v}`, { scroll: false })}>
         <TabsList className="w-full justify-start">
           <TabsTrigger value="profile">Hồ sơ</TabsTrigger>
           <TabsTrigger value="website">Website Studio</TabsTrigger>
@@ -709,13 +1151,13 @@ export default function SettingsPage() {
           <TabsTrigger value="notif">Thông báo</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="website" className="mt-lg">
+          <WebsiteStudioTab />
+        </TabsContent>
+
         <div style={{ maxWidth: 640 }}>
           <TabsContent value="profile" className="mt-lg">
             <ProfileTab />
-          </TabsContent>
-
-          <TabsContent value="website" className="mt-lg">
-            <WebsiteStudioTab />
           </TabsContent>
 
           <TabsContent value="billing" className="mt-lg">

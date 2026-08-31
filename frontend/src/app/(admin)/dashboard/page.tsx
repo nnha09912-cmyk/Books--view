@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Plus } from "lucide-react";
+import { Plus, Globe, ExternalLink, Pencil } from "lucide-react";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { AlbumCard } from "@/components/album-card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,58 @@ import { useStudio } from "@/lib/use-studio";
 import { api } from "@/lib/api-client";
 import { mockActivity, pravatar } from "@/lib/mock-data";
 import { studioDisplayName } from "@/lib/studio-name";
+import { WEBSITE_TEMPLATES, EXPERIMENTAL_WEBSITE_TEMPLATES } from "@/lib/website-templates";
 import type { AlbumSummary } from "@/lib/types";
+
+const ALL_WEBSITE_TEMPLATES = [...WEBSITE_TEMPLATES, ...EXPERIMENTAL_WEBSITE_TEMPLATES];
+
+/** Surfaces the Website Studio module right on the overview — before this,
+ * a Studio had no visibility into "your site is live at guikhach.com/{slug}
+ * using template X" unless they went digging in Cài đặt, which made the
+ * two products (Album Proofing + Website Studio) feel bolted together
+ * rather than one app. */
+function WebsiteStudioCard() {
+  const [state, setState] = useState<{ slug: string; templateId: string } | null>(null);
+
+  useEffect(() => {
+    api<{ slug: string; templateId: string }>("/api/website").then(setState);
+  }, []);
+
+  if (!state) return null;
+
+  const template = ALL_WEBSITE_TEMPLATES.find((t) => t.value === state.templateId);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const link = `${origin}/${state.slug}`;
+
+  return (
+    <div className="card mb-md">
+      <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="flex items-center gap-sm">
+          <Globe size={16} className="text-secondary" />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Website Studio</span>
+        </div>
+        <div>
+          <p style={{ fontSize: 13, margin: 0 }}>{template?.label ?? state.templateId}</p>
+          <span className="text-sm mono">{link}</span>
+        </div>
+        <div className="flex gap-sm">
+          <Button asChild variant="secondary" size="sm">
+            <a href={link} target="_blank" rel="noreferrer">
+              <ExternalLink size={13} />
+              Xem web con
+            </a>
+          </Button>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/settings?tab=website">
+              <Pencil size={13} />
+              Chỉnh sửa
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { studio, loading: studioLoading } = useStudio();
@@ -103,6 +154,8 @@ export default function DashboardPage() {
         </section>
 
         <section>
+          <WebsiteStudioCard />
+
           <h2 className="mb-md">Hoạt động mới</h2>
           <div className="card">
             <div

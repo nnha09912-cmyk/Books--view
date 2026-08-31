@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin, Gem, Users, Heart } from "lucide-react";
+import { useState } from "react";
+import { Phone, Mail, MapPin, Gem, Users, Heart, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -11,11 +12,13 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * visual-reference-4.png "LUXE STUDIO"). Champagne/beige background, large
  * serif headline, a "Premium Quality / Creative Team / Happy Clients"
  * feature row (per the spec's own example) — premium wedding, not loud. */
-export function LuxuryElegantWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function LuxuryElegantWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-luxury">
@@ -69,6 +72,21 @@ export function LuxuryElegantWebsite({ studio, sections, albums, featuredPhotos 
 
         .tpl-web-luxury .lx-about { text-align: center; }
         .tpl-web-luxury .lx-about p { font-size: 15px; line-height: 1.8; color: #4a3f31; max-width: 620px; margin: 0 auto; }
+
+        .tpl-web-luxury .lx-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
+        .tpl-web-luxury .lx-plan { border: 1px solid #ddccae; border-radius: 6px; overflow: hidden; background: #fbf7ef; }
+        .tpl-web-luxury .lx-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 22px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-luxury .lx-plan-name { font-family: "Cormorant Garamond", serif; font-size: 17px; font-weight: 600; }
+        .tpl-web-luxury .lx-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-luxury .lx-plan-price strong { font-family: "Cormorant Garamond", serif; font-size: 19px; color: #a08f6b; }
+        .tpl-web-luxury .lx-plan-price span { font-size: 11px; color: #8a7c65; }
+        .tpl-web-luxury .lx-plan-head svg { color: #a08f6b; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-luxury .lx-plan.open .lx-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-luxury .lx-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-luxury .lx-plan.open .lx-plan-body { max-height: 320px; }
+        .tpl-web-luxury .lx-plan-body-inner { padding: 0 22px 18px; }
+        .tpl-web-luxury .lx-plan-body p { font-size: 13px; color: #6b5d4a; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-luxury .lx-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #4a3f31; line-height: 1.9; }
 
         .tpl-web-luxury .lx-contact { background: #2c241c; color: #f4ede2; padding: 48px 48px 24px; }
         .tpl-web-luxury .lx-contact-row { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: #d8cdb9; margin-bottom: 20px; }
@@ -160,6 +178,48 @@ export function LuxuryElegantWebsite({ studio, sections, albums, featuredPhotos 
             <h2>{studio.name}</h2>
           </div>
           <p>{studio.description}</p>
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="lx-section" id="pricing">
+          <div className="lx-section-head">
+            <span className="lx-eyebrow">Bảng giá</span>
+            <h2>Các gói dịch vụ</h2>
+          </div>
+          <div className="lx-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`lx-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="lx-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="lx-plan-name">{plan.name}</span>
+                    <div className="lx-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="lx-plan-body">
+                    <div className="lx-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

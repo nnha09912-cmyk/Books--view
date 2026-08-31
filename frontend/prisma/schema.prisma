@@ -35,6 +35,9 @@ model Studio {
   /// Deliberately no color/branding field here: per the spec's own Studio
   /// Editor rule, the Template controls the color system, not the Studio.
   coverPhotoId     String?  @db.Uuid
+  /// Short marketing tagline for the Website ("câu nói slogan") — distinct
+  /// from `description`, which is the longer About-section paragraph.
+  tagline          String?
   address          String?
   socialLinks      Json?
   apiKey           String?  @unique
@@ -59,13 +62,40 @@ model Studio {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  albums              Album[]
-  permissions         Permission[]
-  adminAccessLogs     AdminAccessLog[]
-  passwordResetTokens PasswordResetToken[]
-  studioWebsite       StudioWebsite?
+  albums               Album[]
+  permissions          Permission[]
+  adminAccessLogs      AdminAccessLog[]
+  passwordResetTokens  PasswordResetToken[]
+  studioWebsite        StudioWebsite?
+  websitePricingPlans  WebsitePricingPlan[]
 
   @@map("studios")
+}
+
+/// A Studio's own service-price list — what THEY charge THEIR clients,
+/// shown as a price-list accordion on templates that support it (e.g. the
+/// Landing Page demo template). Distinct from the SaaS's own "Gói dịch vụ"
+/// billing tab (still mock UI) — that's what the Studio pays Guikhach.com,
+/// this is what the Studio's own customers pay them.
+model WebsitePricingPlan {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studioId    String   @db.Uuid
+  name        String
+  price       String
+  unit        String?
+  description String?
+  /// string[] of included items, rendered as a bullet list when the plan
+  /// row is expanded.
+  features    Json?
+  orderIndex  Int      @default(0)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@map("website_pricing_plans")
 }
 
 /// The Studio's public-facing marketing site (Website Templates spec) — a

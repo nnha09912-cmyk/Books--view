@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -11,11 +12,13 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * visual-reference-3.png "NOIR STUDIO"). Pure black background, a large
  * moody portrait as hero, small eyebrow + bold headline, outline CTA,
  * a tall feature portrait in the portfolio grid — dramatic, editorial. */
-export function MoodyDarkWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function MoodyDarkWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-moody">
@@ -61,6 +64,21 @@ export function MoodyDarkWebsite({ studio, sections, albums, featuredPhotos }: W
         .tpl-web-moody .md-album-card p { font-size: 12px; color: #857f74; margin: 0; }
 
         .tpl-web-moody .md-about p { font-size: 15px; color: #b8b2a6; line-height: 1.85; max-width: 640px; }
+
+        .tpl-web-moody .md-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+        .tpl-web-moody .md-plan { border: 1px solid #1f1e1a; border-radius: 6px; overflow: hidden; background: #0e0e0d; }
+        .tpl-web-moody .md-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-moody .md-plan-name { font-family: "Cormorant Garamond", serif; font-size: 17px; font-weight: 600; }
+        .tpl-web-moody .md-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-moody .md-plan-price strong { font-family: "Cormorant Garamond", serif; font-size: 19px; }
+        .tpl-web-moody .md-plan-price span { font-size: 11px; color: #857f74; }
+        .tpl-web-moody .md-plan-head svg { color: #857f74; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-moody .md-plan.open .md-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-moody .md-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-moody .md-plan.open .md-plan-body { max-height: 320px; }
+        .tpl-web-moody .md-plan-body-inner { padding: 0 20px 18px; }
+        .tpl-web-moody .md-plan-body p { font-size: 13px; color: #a39d92; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-moody .md-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #b8b2a6; line-height: 1.9; }
 
         .tpl-web-moody .md-contact { border-top: 1px solid #1f1e1a; padding: 44px 48px 22px; }
         .tpl-web-moody .md-contact-row { display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #a39d92; margin-bottom: 18px; }
@@ -138,6 +156,48 @@ export function MoodyDarkWebsite({ studio, sections, albums, featuredPhotos }: W
             <h2>{studio.name}</h2>
           </div>
           <p>{studio.description}</p>
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="md-section" id="pricing">
+          <div className="md-section-head">
+            <span className="md-eyebrow">Bảng giá</span>
+            <h2>Các gói dịch vụ</h2>
+          </div>
+          <div className="md-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`md-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="md-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="md-plan-name">{plan.name}</span>
+                    <div className="md-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="md-plan-body">
+                    <div className="md-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

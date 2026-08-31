@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Camera, Phone, Mail, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Camera, Phone, Mail, MapPin, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
@@ -11,11 +12,13 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * visual-reference-3.png "MEMORY STUDIO"). Cream background, a bordered
  * black & white hero photo, serif headline, filmstrip-style gallery,
  * camera-icon accent in About — nostalgic, timeless, documentary feel. */
-export function VintageFilmWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function VintageFilmWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-vintage">
@@ -65,6 +68,21 @@ export function VintageFilmWebsite({ studio, sections, albums, featuredPhotos }:
         .tpl-web-vintage .vf-about { display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: center; }
         .tpl-web-vintage .vf-about p { font-size: 14.5px; color: #5a4f40; line-height: 1.85; max-width: 520px; margin: 0; }
         .tpl-web-vintage .vf-about-icon { width: 88px; height: 88px; border-radius: 50%; background: #e6dac3; display: flex; align-items: center; justify-content: center; color: #8a7c65; flex-shrink: 0; }
+
+        .tpl-web-vintage .vf-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
+        .tpl-web-vintage .vf-plan { border: 1px solid #ddd0ba; overflow: hidden; background: #fff; }
+        .tpl-web-vintage .vf-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 22px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-vintage .vf-plan-name { font-family: "Playfair Display", serif; font-size: 16px; font-weight: 700; }
+        .tpl-web-vintage .vf-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-vintage .vf-plan-price strong { font-family: "Playfair Display", serif; font-size: 18px; }
+        .tpl-web-vintage .vf-plan-price span { font-size: 11px; color: #a1937a; }
+        .tpl-web-vintage .vf-plan-head svg { color: #a1937a; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-vintage .vf-plan.open .vf-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-vintage .vf-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-vintage .vf-plan.open .vf-plan-body { max-height: 320px; }
+        .tpl-web-vintage .vf-plan-body-inner { padding: 0 22px 18px; }
+        .tpl-web-vintage .vf-plan-body p { font-size: 13px; color: #6b5f4f; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-vintage .vf-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #5a4f40; line-height: 1.9; }
 
         .tpl-web-vintage .vf-contact { background: #3a332a; color: #f4ede1; padding: 44px 48px 22px; }
         .tpl-web-vintage .vf-contact-row { display: flex; justify-content: center; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #d9cdb8; margin-bottom: 18px; }
@@ -144,6 +162,48 @@ export function VintageFilmWebsite({ studio, sections, albums, featuredPhotos }:
           <p>{studio.description}</p>
           <div className="vf-about-icon">
             <Camera size={34} strokeWidth={1.4} />
+          </div>
+        </section>
+      )}
+
+      {showPricing && (
+        <section className="vf-section" id="pricing">
+          <div className="vf-section-head">
+            <span className="vf-eyebrow">Bảng giá</span>
+            <h2>Các gói dịch vụ</h2>
+          </div>
+          <div className="vf-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`vf-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="vf-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="vf-plan-name">{plan.name}</span>
+                    <div className="vf-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="vf-plan-body">
+                    <div className="vf-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

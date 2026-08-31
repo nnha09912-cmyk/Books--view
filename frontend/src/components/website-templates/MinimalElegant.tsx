@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Phone, Mail, MapPin, ArrowRight, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import type { WebsiteTemplateProps } from "./types";
 
 /** A section only renders when there's no explicit WebsiteSection row
@@ -20,11 +21,64 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
  * eyebrows, a soft-yellow "About" band, dark footer with icon contact
  * rows. Fixed section order: Header → Hero → Portfolio nổi bật → Albums →
  * About Studio → Contact → Footer. */
-export function MinimalElegantWebsite({ studio, sections, albums, featuredPhotos }: WebsiteTemplateProps) {
+export function MinimalElegantWebsite({ studio, sections, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const showPortfolio = isEnabled(sections, "portfolio") && featuredPhotos.length > 0;
   const showAlbums = isEnabled(sections, "albums") && albums.length > 0;
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
+  const showPricing = pricingPlans.length > 0;
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
+
+  // Single-row auto-sliding portfolio banner: advances one item every 4s
+  // (or on manual prev/next), looping forever in both directions. Standard
+  // bidirectional "doubled track" trick — the last `visibleCount` photos
+  // are prepended and the first `visibleCount` are appended, so stepping
+  // one past either real end shows pixels identical to the opposite real
+  // end, and we can snap back invisibly (transition disabled for one
+  // frame) instead of jumping visibly.
+  const visibleCount = 4;
+  const photoCount = featuredPhotos.length;
+  const canLoop = photoCount > visibleCount;
+  const carouselPhotos = canLoop
+    ? [...featuredPhotos.slice(-visibleCount), ...featuredPhotos, ...featuredPhotos.slice(0, visibleCount)]
+    : featuredPhotos;
+  const [carouselOffset, setCarouselOffset] = useState(canLoop ? visibleCount : 0);
+  const [carouselTransition, setCarouselTransition] = useState(true);
+
+  function stepForward() {
+    setCarouselOffset((o) => o + 1);
+  }
+  function stepBackward() {
+    setCarouselOffset((o) => o - 1);
+  }
+
+  // Re-arms itself on every offset change (auto tick, manual click, or a
+  // wrap-snap) — a manual click this way always pushes the next auto-step
+  // a full 4s out, instead of an auto-tick landing right on top of it.
+  useEffect(() => {
+    if (!canLoop) return;
+    const id = setTimeout(stepForward, 4000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carouselOffset, canLoop]);
+
+  useEffect(() => {
+    if (!canLoop) return;
+    const atEnd = carouselOffset === visibleCount + photoCount;
+    const atStart = carouselOffset === visibleCount - 1;
+    if (!atEnd && !atStart) return;
+    const t = setTimeout(() => {
+      setCarouselTransition(false);
+      setCarouselOffset(atEnd ? visibleCount : visibleCount + photoCount - 1);
+    }, 650);
+    return () => clearTimeout(t);
+  }, [carouselOffset, canLoop, photoCount]);
+
+  useEffect(() => {
+    if (carouselTransition) return;
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setCarouselTransition(true)));
+    return () => cancelAnimationFrame(raf);
+  }, [carouselTransition]);
 
   return (
     <div className="tpl-web-minimal">
@@ -100,12 +154,16 @@ export function MinimalElegantWebsite({ studio, sections, albums, featuredPhotos
         .tpl-web-minimal .wm-nav-arrows { position: absolute; right: 0; display: flex; gap: 8px; }
         .tpl-web-minimal .wm-nav-arrows button {
           width: 36px; height: 36px; border-radius: 50%; border: 1px solid #ddd3bd; background: #fff;
-          display: flex; align-items: center; justify-content: center; cursor: default; color: var(--wm-ink);
+          display: flex; align-items: center; justify-content: center; color: var(--wm-ink);
+          cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease;
         }
-        .tpl-web-minimal .wm-grid {
-          display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
-        }
-        .tpl-web-minimal .wm-grid img {
+        .tpl-web-minimal .wm-nav-arrows button:hover { background: var(--wm-yellow); border-color: var(--wm-yellow); }
+        .tpl-web-minimal .wm-nav-arrows button:disabled { cursor: default; opacity: 0.4; }
+        .tpl-web-minimal .wm-nav-arrows button:disabled:hover { background: #fff; border-color: #ddd3bd; }
+        .tpl-web-minimal .wm-carousel { overflow: hidden; margin: 0 -9px; }
+        .tpl-web-minimal .wm-carousel-track { display: flex; }
+        .tpl-web-minimal .wm-carousel-item { flex: 0 0 25%; padding: 0 9px; box-sizing: border-box; }
+        .tpl-web-minimal .wm-carousel-item img {
           width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 14px; display: block;
         }
         .tpl-web-minimal .wm-albums { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 26px; }
@@ -134,6 +192,21 @@ export function MinimalElegantWebsite({ studio, sections, albums, featuredPhotos
           right: -24px; bottom: -24px; z-index: -1;
         }
 
+        .tpl-web-minimal .wm-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
+        .tpl-web-minimal .wm-plan { border: 1px solid #ece3ce; border-radius: 12px; overflow: hidden; background: #fff; }
+        .tpl-web-minimal .wm-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 22px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+        .tpl-web-minimal .wm-plan-name { font-family: "Jost", sans-serif; font-size: 14px; font-weight: 700; }
+        .tpl-web-minimal .wm-plan-price { display: flex; align-items: baseline; gap: 12px; }
+        .tpl-web-minimal .wm-plan-price strong { font-family: "Jost", sans-serif; font-size: 18px; color: #b8891f; }
+        .tpl-web-minimal .wm-plan-price span { font-size: 11px; color: #8a7f68; }
+        .tpl-web-minimal .wm-plan-head svg { color: #8a7f68; transition: transform 0.2s ease; flex-shrink: 0; }
+        .tpl-web-minimal .wm-plan.open .wm-plan-head svg { transform: rotate(180deg); }
+        .tpl-web-minimal .wm-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+        .tpl-web-minimal .wm-plan.open .wm-plan-body { max-height: 320px; }
+        .tpl-web-minimal .wm-plan-body-inner { padding: 0 22px 18px; }
+        .tpl-web-minimal .wm-plan-body p { font-size: 13px; color: #6b6355; line-height: 1.7; margin: 0 0 10px; }
+        .tpl-web-minimal .wm-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #4a4638; line-height: 1.9; }
+
         .tpl-web-minimal .wm-contact {
           background: var(--wm-ink); color: #fdfcfa; padding: 56px 48px 28px;
         }
@@ -152,7 +225,6 @@ export function MinimalElegantWebsite({ studio, sections, albums, featuredPhotos
         @media (max-width: 900px) {
           .tpl-web-minimal .wm-hero { grid-template-columns: 1fr; padding-bottom: 60px; }
           .tpl-web-minimal .wm-nav { display: none; }
-          .tpl-web-minimal .wm-grid { grid-template-columns: repeat(2, 1fr); }
           .tpl-web-minimal .wm-about { grid-template-columns: 1fr; }
           .tpl-web-minimal .wm-contact-grid { grid-template-columns: 1fr; }
           .tpl-web-minimal .wm-header, .tpl-web-minimal .wm-section, .tpl-web-minimal .wm-about-wrap, .tpl-web-minimal .wm-contact { padding-left: 20px; padding-right: 20px; }
@@ -200,18 +272,28 @@ export function MinimalElegantWebsite({ studio, sections, albums, featuredPhotos
           <div className="wm-section-head">
             <h2>Portfolio nổi bật</h2>
             <div className="wm-nav-arrows">
-              <button type="button" aria-hidden>
+              <button type="button" onClick={stepBackward} disabled={!canLoop} aria-label="Ảnh trước">
                 <ChevronLeft size={16} />
               </button>
-              <button type="button" aria-hidden>
+              <button type="button" onClick={stepForward} disabled={!canLoop} aria-label="Ảnh tiếp theo">
                 <ChevronRight size={16} />
               </button>
             </div>
           </div>
-          <div className="wm-grid">
-            {featuredPhotos.map((url) => (
-              <img key={url} src={url} alt="" />
-            ))}
+          <div className="wm-carousel">
+            <div
+              className="wm-carousel-track"
+              style={{
+                transform: `translateX(-${carouselOffset * (100 / visibleCount)}%)`,
+                transition: carouselTransition ? "transform 0.6s ease" : "none",
+              }}
+            >
+              {carouselPhotos.map((url, i) => (
+                <div className="wm-carousel-item" key={`${url}-${i}`}>
+                  <img src={url} alt="" />
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}
@@ -253,6 +335,47 @@ export function MinimalElegantWebsite({ studio, sections, albums, featuredPhotos
             )}
           </div>
         </div>
+      )}
+
+      {showPricing && (
+        <section className="wm-section" id="pricing">
+          <div className="wm-section-head">
+            <h2>Bảng giá</h2>
+          </div>
+          <div className="wm-pricing">
+            {pricingPlans.map((plan) => {
+              const open = openPlan === plan.id;
+              return (
+                <div key={plan.id} className={`wm-plan${open ? " open" : ""}`}>
+                  <button
+                    type="button"
+                    className="wm-plan-head"
+                    onClick={() => setOpenPlan(open ? null : plan.id)}
+                  >
+                    <span className="wm-plan-name">{plan.name}</span>
+                    <div className="wm-plan-price">
+                      <strong>{plan.price}</strong>
+                      {plan.unit && <span>{plan.unit}</span>}
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
+                  <div className="wm-plan-body">
+                    <div className="wm-plan-body-inner">
+                      {plan.description && <p>{plan.description}</p>}
+                      {plan.features.length > 0 && (
+                        <ul>
+                          {plan.features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {showContact && (

@@ -7,15 +7,13 @@ import { DEFAULT_WEBSITE_TEMPLATE, isWebsiteTemplateId } from "@/lib/website-tem
  * site is still viewable here on purpose: this is exactly the link a
  * Studio sends a client "xem trước" (preview) before formally publishing —
  * status is kept for a later real Publish step (e.g. search-engine
- * indexing), not as a visibility gate. A studio with no Website row at all
- * (never touched the editor) still 404s — same as a nonexistent slug, no
- * way to tell the two apart from outside — UNLESS `?previewTemplate=` is
- * present, which is the Settings page's own "Xem trước" button on each
- * template card (works even before the Studio has saved anything, so
- * "muốn chọn nào tuỳ thích" can actually try before deciding). This param
- * only ever changes which template renders THIS response — it never reads
- * or writes anything to the database, so it carries no more risk than any
- * other query string. */
+ * indexing), not as a visibility gate. Only a genuinely nonexistent slug
+ * 404s — a Studio that has never clicked the main "Lưu thay đổi" (so no
+ * StudioWebsite row exists yet) still resolves, falling back to
+ * DEFAULT_WEBSITE_TEMPLATE, because sub-resources like Bảng giá (pricing
+ * plans) save independently and immediately: a Studio can have real
+ * pricing content live before ever touching the rest of the editor, and
+ * gating the whole page on that row's existence would 404 it away. */
 export async function GET(
   req: NextRequest,
   { params }: { params: { slug: string } }
@@ -32,6 +30,7 @@ export async function GET(
       slug: true,
       logoUrl: true,
       coverPhotoId: true,
+      tagline: true,
       description: true,
       address: true,
       phone: true,
@@ -51,22 +50,29 @@ export async function GET(
     },
   });
 
-  if (!studio || (!studio.studioWebsite && !previewTemplate)) {
+  if (!studio) {
     return NextResponse.json({ error: { message: "Không tìm thấy website" } }, { status: 404 });
   }
 
-  const albums = await prisma.album.findMany({
-    where: { studio: { slug: params.slug }, showOnWebsite: true },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      photoCount: true,
-      linkToken: true,
-      coverPhotoId: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [albums, pricingPlans] = await Promise.all([
+    prisma.album.findMany({
+      where: { studio: { slug: params.slug }, showOnWebsite: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        photoCount: true,
+        linkToken: true,
+        coverPhotoId: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.websitePricingPlan.findMany({
+      where: { studio: { slug: params.slug }, enabled: true },
+      select: { id: true, name: true, price: true, unit: true, description: true, features: true },
+      orderBy: { orderIndex: "asc" },
+    }),
+  ]);
 
   const featuredPhotoIds = Array.isArray(
     (studio.studioWebsite?.settings as Record<string, unknown> | null)?.featuredPhotoIds
@@ -93,6 +99,7 @@ export async function GET(
       slug: studio.slug,
       logoUrl: studio.logoUrl,
       cover: studio.coverPhotoId ? (urlById.get(studio.coverPhotoId) ?? null) : null,
+      tagline: studio.tagline,
       description: studio.description,
       address: studio.address,
       phone: studio.phone,
@@ -111,6 +118,14 @@ export async function GET(
       photoCount: a.photoCount,
       linkToken: a.linkToken,
       coverUrl: a.coverPhotoId ? (urlById.get(a.coverPhotoId) ?? null) : null,
+    })),
+    pricingPlans: pricingPlans.map((p) => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      unit: p.unit,
+      description: p.description,
+      features: Array.isArray(p.features) ? (p.features as string[]) : [],
     })),
   });
 }
