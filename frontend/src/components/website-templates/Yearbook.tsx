@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function YbPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="yb-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="yb-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="yb-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="yb-plan-desc">
+          <span className="yb-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="yb-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="yb-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="yb-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="yb-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="yb-plan-sub">
+                  <span className="yb-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="yb-plan-sub">
+                  <span className="yb-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="yb-plan-sub">
+                  <span className="yb-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 15 — YEARBOOK / KỶ YẾU (BOOKS_VIEW_TEMPLATES/template-15-*.md,
@@ -18,7 +108,6 @@ export function YearbookWebsite({ studio, sections, albums, featuredPhotos, pric
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
   const latest = featuredPhotos.slice(0, 4);
 
   return (
@@ -70,20 +159,25 @@ export function YearbookWebsite({ studio, sections, albums, featuredPhotos, pric
         .tpl-web-yearbook .yb-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
         .tpl-web-yearbook .yb-grid img { width: 100%; aspect-ratio: 4/5; object-fit: cover; display: block; border-radius: 12px; }
 
-        .tpl-web-yearbook .yb-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; text-align: left; }
-        .tpl-web-yearbook .yb-plan { border: none; border-radius: 14px; overflow: hidden; background: #fff; box-shadow: 0 2px 10px rgba(31,78,140,0.08); }
-        .tpl-web-yearbook .yb-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-yearbook .yb-plan-name { font-size: 14px; font-weight: 700; }
-        .tpl-web-yearbook .yb-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-yearbook .yb-plan-price strong { font-family: "Baloo 2", sans-serif; font-size: 17px; color: #1f4e8c; }
-        .tpl-web-yearbook .yb-plan-price span { font-size: 11px; color: #7a8a9c; }
-        .tpl-web-yearbook .yb-plan-head svg { color: #6a97c8; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-yearbook .yb-plan.open .yb-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-yearbook .yb-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-yearbook .yb-plan.open .yb-plan-body { max-height: 320px; }
-        .tpl-web-yearbook .yb-plan-body-inner { padding: 0 20px 16px; }
-        .tpl-web-yearbook .yb-plan-body p { font-size: 13px; color: #4a5d73; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-yearbook .yb-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #1e2b3a; line-height: 1.9; }
+        .tpl-web-yearbook .yb-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-yearbook .yb-plan-card { border: none; border-radius: 14px; padding: 28px 24px; background: #fff; box-shadow: 0 2px 10px rgba(31,78,140,0.08); display: flex; flex-direction: column; text-align: left; }
+        .tpl-web-yearbook .yb-plan-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 10px; }
+        .tpl-web-yearbook .yb-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-yearbook .yb-plan-card-price strong { font-family: "Baloo 2", sans-serif; font-size: 24px; color: #1f4e8c; }
+        .tpl-web-yearbook .yb-plan-card-price span { font-size: 12px; color: #7a8a9c; }
+        .tpl-web-yearbook .yb-plan-tagline { font-style: italic; font-size: 13px; color: #4a5d73; margin: 0 0 14px; }
+        .tpl-web-yearbook .yb-plan-desc { margin: 0 0 14px; }
+        .tpl-web-yearbook .yb-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6a97c8; margin-bottom: 6px; }
+        .tpl-web-yearbook .yb-plan-desc p { font-size: 13px; color: #4a5d73; line-height: 1.7; margin: 0; }
+        .tpl-web-yearbook .yb-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 700; color: #1f4e8c; cursor: pointer; font-family: inherit; }
+        .tpl-web-yearbook .yb-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #dbe8f5; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-yearbook .yb-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-yearbook .yb-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #1e2b3a; line-height: 1.5; }
+        .tpl-web-yearbook .yb-plan-features svg { color: #1f4e8c; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-yearbook .yb-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6a97c8; margin-bottom: 8px; }
+        .tpl-web-yearbook .yb-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-yearbook .yb-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #1e2b3a; line-height: 1.5; }
+        .tpl-web-yearbook .yb-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #7a8a9c; }
 
         .tpl-web-yearbook .yb-contact { background: #fff; border-top: 1px solid #dbe8f5; padding: 40px 48px 20px; }
         .tpl-web-yearbook .yb-contact-row { display: flex; justify-content: center; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #4a5d73; margin-bottom: 16px; }
@@ -188,37 +282,9 @@ export function YearbookWebsite({ studio, sections, albums, featuredPhotos, pric
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="yb-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`yb-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="yb-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="yb-plan-name">{plan.name}</span>
-                    <div className="yb-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="yb-plan-body">
-                    <div className="yb-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <YbPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

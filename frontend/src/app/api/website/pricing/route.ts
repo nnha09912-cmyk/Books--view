@@ -26,8 +26,12 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
   price: z.string().trim().min(1).max(60),
   unit: z.string().trim().max(40).optional(),
+  tagline: z.string().trim().max(160).optional(),
   description: z.string().trim().max(1000).optional(),
   features: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  printProducts: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  gifts: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  notes: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
 });
 
 /** Appends a new plan at the end of this studio's list (orderIndex = current
@@ -47,8 +51,12 @@ export async function POST(req: NextRequest) {
       name: parsed.data.name,
       price: parsed.data.price,
       unit: parsed.data.unit || null,
+      tagline: parsed.data.tagline || null,
       description: parsed.data.description || null,
       features: parsed.data.features ?? [],
+      printProducts: parsed.data.printProducts ?? [],
+      gifts: parsed.data.gifts ?? [],
+      notes: parsed.data.notes ?? [],
       orderIndex: count,
     },
   });

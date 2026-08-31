@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Camera, Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Camera, Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function VfPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="vf-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="vf-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="vf-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="vf-plan-desc">
+          <span className="vf-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="vf-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="vf-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="vf-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="vf-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="vf-plan-sub">
+                  <span className="vf-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="vf-plan-sub">
+                  <span className="vf-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="vf-plan-sub">
+                  <span className="vf-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 08 — VINTAGE FILM (BOOKS_VIEW_TEMPLATES/template-08-*.md,
@@ -18,7 +108,6 @@ export function VintageFilmWebsite({ studio, sections, albums, featuredPhotos, p
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-vintage">
@@ -69,20 +158,25 @@ export function VintageFilmWebsite({ studio, sections, albums, featuredPhotos, p
         .tpl-web-vintage .vf-about p { font-size: 14.5px; color: #5a4f40; line-height: 1.85; max-width: 520px; margin: 0; }
         .tpl-web-vintage .vf-about-icon { width: 88px; height: 88px; border-radius: 50%; background: #e6dac3; display: flex; align-items: center; justify-content: center; color: #8a7c65; flex-shrink: 0; }
 
-        .tpl-web-vintage .vf-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
-        .tpl-web-vintage .vf-plan { border: 1px solid #ddd0ba; overflow: hidden; background: #fff; }
-        .tpl-web-vintage .vf-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 22px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-vintage .vf-plan-name { font-family: "Playfair Display", serif; font-size: 16px; font-weight: 700; }
-        .tpl-web-vintage .vf-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-vintage .vf-plan-price strong { font-family: "Playfair Display", serif; font-size: 18px; }
-        .tpl-web-vintage .vf-plan-price span { font-size: 11px; color: #a1937a; }
-        .tpl-web-vintage .vf-plan-head svg { color: #a1937a; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-vintage .vf-plan.open .vf-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-vintage .vf-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-vintage .vf-plan.open .vf-plan-body { max-height: 320px; }
-        .tpl-web-vintage .vf-plan-body-inner { padding: 0 22px 18px; }
-        .tpl-web-vintage .vf-plan-body p { font-size: 13px; color: #6b5f4f; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-vintage .vf-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #5a4f40; line-height: 1.9; }
+        .tpl-web-vintage .vf-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-vintage .vf-plan-card { border: 1px solid #ddd0ba; padding: 28px 24px; background: #fff; display: flex; flex-direction: column; }
+        .tpl-web-vintage .vf-plan-card h3 { font-family: "Playfair Display", serif; font-size: 17px; font-weight: 700; margin: 0 0 10px; }
+        .tpl-web-vintage .vf-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-vintage .vf-plan-card-price strong { font-family: "Playfair Display", serif; font-size: 24px; }
+        .tpl-web-vintage .vf-plan-card-price span { font-size: 12px; color: #a1937a; }
+        .tpl-web-vintage .vf-plan-tagline { font-style: italic; font-size: 13px; color: #6b5f4f; margin: 0 0 14px; }
+        .tpl-web-vintage .vf-plan-desc { margin: 0 0 14px; }
+        .tpl-web-vintage .vf-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #a1937a; margin-bottom: 6px; }
+        .tpl-web-vintage .vf-plan-desc p { font-size: 13px; color: #6b5f4f; line-height: 1.7; margin: 0; }
+        .tpl-web-vintage .vf-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 600; color: #a1937a; cursor: pointer; font-family: inherit; }
+        .tpl-web-vintage .vf-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #ddd0ba; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-vintage .vf-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-vintage .vf-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #5a4f40; line-height: 1.5; }
+        .tpl-web-vintage .vf-plan-features svg { color: #3a332a; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-vintage .vf-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #a1937a; margin-bottom: 8px; }
+        .tpl-web-vintage .vf-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-vintage .vf-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #5a4f40; line-height: 1.5; }
+        .tpl-web-vintage .vf-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #a1937a; }
 
         .tpl-web-vintage .vf-contact { background: #3a332a; color: #f4ede1; padding: 44px 48px 22px; }
         .tpl-web-vintage .vf-contact-row { display: flex; justify-content: center; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #d9cdb8; margin-bottom: 18px; }
@@ -173,37 +267,9 @@ export function VintageFilmWebsite({ studio, sections, albums, featuredPhotos, p
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="vf-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`vf-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="vf-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="vf-plan-name">{plan.name}</span>
-                    <div className="vf-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="vf-plan-body">
-                    <div className="vf-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <VfPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

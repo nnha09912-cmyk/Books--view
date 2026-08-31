@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
@@ -10,6 +10,96 @@ function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
+}
+
+function EmPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="em-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="em-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="em-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="em-plan-desc">
+          <span className="em-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="em-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="em-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="em-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="em-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="em-plan-sub">
+                  <span className="em-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="em-plan-sub">
+                  <span className="em-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="em-plan-sub">
+                  <span className="em-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 12 — EDITORIAL MAGAZINE (BOOKS_VIEW_TEMPLATES/template-12-*.md,
@@ -22,7 +112,6 @@ export function EditorialMagazineWebsite({ studio, sections, albums, featuredPho
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
   const monogram = studio.name.trim().charAt(0).toUpperCase() || "S";
 
   return (
@@ -72,20 +161,25 @@ export function EditorialMagazineWebsite({ studio, sections, albums, featuredPho
         .tpl-web-editorial .em-about p { font-size: 14.5px; color: #4a4844; line-height: 1.85; max-width: 540px; margin: 0; }
         .tpl-web-editorial .em-monogram { font-family: "Archivo", sans-serif; font-weight: 900; font-size: 96px; line-height: 1; color: #171613; }
 
-        .tpl-web-editorial .em-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
-        .tpl-web-editorial .em-plan { border: 1px solid #1717131a; overflow: hidden; background: #fff; }
-        .tpl-web-editorial .em-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-editorial .em-plan-name { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
-        .tpl-web-editorial .em-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-editorial .em-plan-price strong { font-family: "Archivo", sans-serif; font-weight: 900; font-size: 17px; }
-        .tpl-web-editorial .em-plan-price span { font-size: 11px; color: #a09c8e; }
-        .tpl-web-editorial .em-plan-head svg { color: #a09c8e; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-editorial .em-plan.open .em-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-editorial .em-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-editorial .em-plan.open .em-plan-body { max-height: 320px; }
-        .tpl-web-editorial .em-plan-body-inner { padding: 0 20px 18px; }
-        .tpl-web-editorial .em-plan-body p { font-size: 13px; color: #4a4844; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-editorial .em-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #302e29; line-height: 1.9; }
+        .tpl-web-editorial .em-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-editorial .em-plan-card { border: 1px solid #1717131a; padding: 28px 24px; background: #fff; display: flex; flex-direction: column; }
+        .tpl-web-editorial .em-plan-card h3 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 10px; }
+        .tpl-web-editorial .em-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-editorial .em-plan-card-price strong { font-family: "Archivo", sans-serif; font-weight: 900; font-size: 24px; }
+        .tpl-web-editorial .em-plan-card-price span { font-size: 12px; color: #a09c8e; }
+        .tpl-web-editorial .em-plan-tagline { font-style: italic; font-size: 13px; color: #4a4844; margin: 0 0 14px; }
+        .tpl-web-editorial .em-plan-desc { margin: 0 0 14px; }
+        .tpl-web-editorial .em-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #a09c8e; margin-bottom: 6px; }
+        .tpl-web-editorial .em-plan-desc p { font-size: 13px; color: #4a4844; line-height: 1.7; margin: 0; }
+        .tpl-web-editorial .em-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: #171613; cursor: pointer; font-family: inherit; }
+        .tpl-web-editorial .em-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #1717131a; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-editorial .em-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-editorial .em-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #302e29; line-height: 1.5; }
+        .tpl-web-editorial .em-plan-features svg { color: #171613; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-editorial .em-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #a09c8e; margin-bottom: 8px; }
+        .tpl-web-editorial .em-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-editorial .em-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #302e29; line-height: 1.5; }
+        .tpl-web-editorial .em-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #8a8678; }
 
         .tpl-web-editorial .em-contact { background: #171613; color: #f6f4f0; padding: 44px 48px 22px; }
         .tpl-web-editorial .em-contact-row { display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #c8c5bb; margin-bottom: 18px; }
@@ -183,37 +277,9 @@ export function EditorialMagazineWebsite({ studio, sections, albums, featuredPho
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="em-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`em-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="em-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="em-plan-name">{plan.name}</span>
-                    <div className="em-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="em-plan-body">
-                    <div className="em-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <EmPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

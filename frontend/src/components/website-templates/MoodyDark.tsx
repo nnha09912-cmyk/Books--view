@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function MdPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="md-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="md-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="md-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="md-plan-desc">
+          <span className="md-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="md-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="md-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="md-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="md-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="md-plan-sub">
+                  <span className="md-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="md-plan-sub">
+                  <span className="md-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="md-plan-sub">
+                  <span className="md-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 09 — MOODY DARK (BOOKS_VIEW_TEMPLATES/template-09-*.md,
@@ -18,7 +108,6 @@ export function MoodyDarkWebsite({ studio, sections, albums, featuredPhotos, pri
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-moody">
@@ -65,20 +154,25 @@ export function MoodyDarkWebsite({ studio, sections, albums, featuredPhotos, pri
 
         .tpl-web-moody .md-about p { font-size: 15px; color: #b8b2a6; line-height: 1.85; max-width: 640px; }
 
-        .tpl-web-moody .md-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
-        .tpl-web-moody .md-plan { border: 1px solid #1f1e1a; border-radius: 6px; overflow: hidden; background: #0e0e0d; }
-        .tpl-web-moody .md-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-moody .md-plan-name { font-family: "Cormorant Garamond", serif; font-size: 17px; font-weight: 600; }
-        .tpl-web-moody .md-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-moody .md-plan-price strong { font-family: "Cormorant Garamond", serif; font-size: 19px; }
-        .tpl-web-moody .md-plan-price span { font-size: 11px; color: #857f74; }
-        .tpl-web-moody .md-plan-head svg { color: #857f74; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-moody .md-plan.open .md-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-moody .md-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-moody .md-plan.open .md-plan-body { max-height: 320px; }
-        .tpl-web-moody .md-plan-body-inner { padding: 0 20px 18px; }
-        .tpl-web-moody .md-plan-body p { font-size: 13px; color: #a39d92; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-moody .md-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #b8b2a6; line-height: 1.9; }
+        .tpl-web-moody .md-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-moody .md-plan-card { border: 1px solid #1f1e1a; border-radius: 6px; padding: 28px 24px; background: #0e0e0d; display: flex; flex-direction: column; }
+        .tpl-web-moody .md-plan-card h3 { font-family: "Cormorant Garamond", serif; font-size: 18px; font-weight: 600; margin: 0 0 10px; }
+        .tpl-web-moody .md-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-moody .md-plan-card-price strong { font-family: "Cormorant Garamond", serif; font-size: 25px; }
+        .tpl-web-moody .md-plan-card-price span { font-size: 12px; color: #857f74; }
+        .tpl-web-moody .md-plan-tagline { font-style: italic; font-size: 13px; color: #a39d92; margin: 0 0 14px; }
+        .tpl-web-moody .md-plan-desc { margin: 0 0 14px; }
+        .tpl-web-moody .md-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #8a8378; margin-bottom: 6px; }
+        .tpl-web-moody .md-plan-desc p { font-size: 13px; color: #a39d92; line-height: 1.7; margin: 0; }
+        .tpl-web-moody .md-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 600; color: #8a8378; cursor: pointer; font-family: inherit; }
+        .tpl-web-moody .md-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #1f1e1a; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-moody .md-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-moody .md-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #b8b2a6; line-height: 1.5; }
+        .tpl-web-moody .md-plan-features svg { color: #ece8e2; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-moody .md-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #8a8378; margin-bottom: 8px; }
+        .tpl-web-moody .md-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-moody .md-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #b8b2a6; line-height: 1.5; }
+        .tpl-web-moody .md-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #857f74; }
 
         .tpl-web-moody .md-contact { border-top: 1px solid #1f1e1a; padding: 44px 48px 22px; }
         .tpl-web-moody .md-contact-row { display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #a39d92; margin-bottom: 18px; }
@@ -166,37 +260,9 @@ export function MoodyDarkWebsite({ studio, sections, albums, featuredPhotos, pri
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="md-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`md-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="md-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="md-plan-name">{plan.name}</span>
-                    <div className="md-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="md-plan-body">
-                    <div className="md-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <MdPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

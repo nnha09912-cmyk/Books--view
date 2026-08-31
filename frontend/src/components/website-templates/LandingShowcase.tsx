@@ -1,7 +1,95 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ChevronDown, MapPin, Phone, Mail, Camera, Users, PartyPopper, BookImage } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import { Check, MapPin, Phone, Mail, Camera, Users, PartyPopper, BookImage, ChevronDown, ChevronUp, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
+
+function LsPricingCard({ plan }: { plan: WebsitePricingPlanData }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="ls-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="ls-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="ls-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="ls-plan-desc">
+          <span className="ls-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      <a className="ls-cta" href="#contact" style={{ justifyContent: "center" }}>
+        Tư vấn ngay
+      </a>
+      {hasDetails && (
+        <>
+          <button type="button" className="ls-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="ls-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="ls-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="ls-plan-sub">
+                  <span className="ls-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="ls-plan-sub">
+                  <span className="ls-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="ls-plan-sub">
+                  <span className="ls-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 /** EXPERIMENTAL — LANDING PAGE DEMO (not one of the 17 spec'd templates;
  * a separate, standalone concept the user asked to prototype: a compact
@@ -12,7 +100,6 @@ import type { WebsiteTemplateProps } from "./types";
  * `scroll-behavior: smooth` — no JS scroll handling needed. */
 export function LandingShowcaseWebsite({ studio, albums, featuredPhotos, pricingPlans }: WebsiteTemplateProps) {
   const [slide, setSlide] = useState(0);
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
   const slides = featuredPhotos.length > 0 ? featuredPhotos : studio.cover ? [studio.cover] : [];
   const mainAlbum = albums[0] ?? null;
 
@@ -78,20 +165,25 @@ export function LandingShowcaseWebsite({ studio, albums, featuredPhotos, pricing
         .tpl-web-landing .ls-service h4 { font-size: 13.5px; font-weight: 700; margin: 0 0 4px; }
         .tpl-web-landing .ls-service p { font-size: 12px; color: #8a8074; margin: 0; line-height: 1.6; }
 
-        .tpl-web-landing .ls-pricing { display: flex; flex-direction: column; gap: 12px; }
-        .tpl-web-landing .ls-plan { border: 1px solid #e9e0d2; border-radius: 14px; background: #fff; overflow: hidden; }
-        .tpl-web-landing .ls-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; }
-        .tpl-web-landing .ls-plan-name { font-size: 15px; font-weight: 700; }
-        .tpl-web-landing .ls-plan-price { display: flex; align-items: baseline; gap: 14px; }
-        .tpl-web-landing .ls-plan-price strong { font-family: "Fraunces", serif; font-size: 18px; color: #c9713f; }
-        .tpl-web-landing .ls-plan-price span { font-size: 11.5px; color: #8a8074; }
-        .tpl-web-landing .ls-plan-head svg { color: #8a8074; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-landing .ls-plan.open .ls-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-landing .ls-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-landing .ls-plan.open .ls-plan-body { max-height: 320px; }
-        .tpl-web-landing .ls-plan-body-inner { padding: 0 22px 20px; }
-        .tpl-web-landing .ls-plan-body p { font-size: 13px; color: #6b6255; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-landing .ls-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #4a4338; line-height: 1.9; }
+        .tpl-web-landing .ls-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-landing .ls-plan-card { border: 1px solid #e9e0d2; border-radius: 14px; padding: 28px 24px; background: #fff; display: flex; flex-direction: column; }
+        .tpl-web-landing .ls-plan-card h3 { font-size: 16px; font-weight: 700; margin: 0 0 10px; }
+        .tpl-web-landing .ls-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-landing .ls-plan-card-price strong { font-family: "Fraunces", serif; font-size: 25px; color: #c9713f; }
+        .tpl-web-landing .ls-plan-card-price span { font-size: 12px; color: #8a8074; }
+        .tpl-web-landing .ls-plan-tagline { font-family: "Fraunces", serif; font-style: italic; font-size: 14.5px; color: #6b6255; margin: 0 0 14px; }
+        .tpl-web-landing .ls-plan-desc { margin: 0 0 14px; }
+        .tpl-web-landing .ls-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #c9713f; margin-bottom: 6px; }
+        .tpl-web-landing .ls-plan-desc p { font-size: 13px; color: #6b6255; line-height: 1.7; margin: 0; }
+        .tpl-web-landing .ls-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 700; color: #c9713f; cursor: pointer; font-family: inherit; }
+        .tpl-web-landing .ls-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e9e0d2; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-landing .ls-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-landing .ls-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #4a4338; line-height: 1.5; }
+        .tpl-web-landing .ls-plan-features svg { color: #c9713f; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-landing .ls-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #c9713f; margin-bottom: 8px; }
+        .tpl-web-landing .ls-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-landing .ls-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #4a4338; line-height: 1.5; }
+        .tpl-web-landing .ls-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #8a8074; }
         .tpl-web-landing .ls-pricing-empty { font-size: 13.5px; color: #8a8074; }
 
         .tpl-web-landing .ls-contact { background: #241f19; color: #f0e9db; padding: 48px 48px 24px; }
@@ -196,37 +288,9 @@ export function LandingShowcaseWebsite({ studio, albums, featuredPhotos, pricing
           <p className="ls-pricing-empty">Studio chưa cập nhật bảng giá.</p>
         ) : (
           <div className="ls-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`ls-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="ls-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="ls-plan-name">{plan.name}</span>
-                    <div className="ls-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={18} />
-                    </div>
-                  </button>
-                  <div className="ls-plan-body">
-                    <div className="ls-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <LsPricingCard key={plan.id} plan={plan} />
+            ))}
           </div>
         )}
       </section>

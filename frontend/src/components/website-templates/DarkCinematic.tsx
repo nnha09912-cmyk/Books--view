@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function DcPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="dc-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="dc-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="dc-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="dc-plan-desc">
+          <span className="dc-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="dc-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="dc-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="dc-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="dc-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="dc-plan-sub">
+                  <span className="dc-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="dc-plan-sub">
+                  <span className="dc-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="dc-plan-sub">
+                  <span className="dc-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 02 — DARK CINEMATIC (BOOKS_VIEW_TEMPLATES/template-02-*.md,
@@ -18,7 +108,6 @@ export function DarkCinematicWebsite({ studio, sections, albums, featuredPhotos,
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-dark">
@@ -84,20 +173,25 @@ export function DarkCinematicWebsite({ studio, sections, albums, featuredPhotos,
         .tpl-web-dark .dc-about p { font-size: 15px; color: #cfcac0; line-height: 1.8; margin: 0; }
         .tpl-web-dark .dc-about img { width: 100%; aspect-ratio: 4/3; object-fit: cover; filter: grayscale(0.3); }
 
-        .tpl-web-dark .dc-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
-        .tpl-web-dark .dc-plan { border: 1px solid #232326; border-radius: 8px; overflow: hidden; background: #17171a; }
-        .tpl-web-dark .dc-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-dark .dc-plan-name { font-family: "Jost", sans-serif; font-size: 14px; font-weight: 600; }
-        .tpl-web-dark .dc-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-dark .dc-plan-price strong { font-family: "Jost", sans-serif; font-size: 17px; color: #f3f1ec; }
-        .tpl-web-dark .dc-plan-price span { font-size: 11px; color: #8f8a7f; }
-        .tpl-web-dark .dc-plan-head svg { color: #8f8a7f; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-dark .dc-plan.open .dc-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-dark .dc-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-dark .dc-plan.open .dc-plan-body { max-height: 320px; }
-        .tpl-web-dark .dc-plan-body-inner { padding: 0 20px 18px; }
-        .tpl-web-dark .dc-plan-body p { font-size: 13px; color: #b5b0a6; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-dark .dc-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cfcac0; line-height: 1.9; }
+        .tpl-web-dark .dc-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-dark .dc-plan-card { border: 1px solid #232326; border-radius: 10px; padding: 28px 24px; background: #17171a; display: flex; flex-direction: column; }
+        .tpl-web-dark .dc-plan-card h3 { font-family: "Jost", sans-serif; font-size: 16px; font-weight: 700; margin: 0 0 10px; }
+        .tpl-web-dark .dc-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-dark .dc-plan-card-price strong { font-family: "Jost", sans-serif; font-size: 24px; color: #f3f1ec; }
+        .tpl-web-dark .dc-plan-card-price span { font-size: 12px; color: #8f8a7f; }
+        .tpl-web-dark .dc-plan-tagline { font-style: italic; font-size: 13px; color: #b5b0a6; margin: 0 0 14px; }
+        .tpl-web-dark .dc-plan-desc { margin: 0 0 14px; }
+        .tpl-web-dark .dc-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #cbb98a; margin-bottom: 6px; }
+        .tpl-web-dark .dc-plan-desc p { font-size: 13px; color: #b5b0a6; line-height: 1.7; margin: 0; }
+        .tpl-web-dark .dc-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 600; color: #cbb98a; cursor: pointer; font-family: inherit; }
+        .tpl-web-dark .dc-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #232326; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-dark .dc-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-dark .dc-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #cfcac0; line-height: 1.5; }
+        .tpl-web-dark .dc-plan-features svg { color: #f3f1ec; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-dark .dc-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #cbb98a; margin-bottom: 8px; }
+        .tpl-web-dark .dc-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-dark .dc-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #cfcac0; line-height: 1.5; }
+        .tpl-web-dark .dc-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #8f8a7f; }
 
         .tpl-web-dark .dc-contact { background: #050506; padding: 56px 48px 28px; }
         .tpl-web-dark .dc-contact-grid { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 32px; padding-bottom: 28px; }
@@ -191,37 +285,9 @@ export function DarkCinematicWebsite({ studio, sections, albums, featuredPhotos,
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="dc-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`dc-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="dc-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="dc-plan-name">{plan.name}</span>
-                    <div className="dc-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="dc-plan-body">
-                    <div className="dc-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <DcPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

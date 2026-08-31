@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, Gem, Users, Heart, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Gem, Users, Heart, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function LxPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="lx-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="lx-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="lx-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="lx-plan-desc">
+          <span className="lx-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="lx-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="lx-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="lx-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="lx-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="lx-plan-sub">
+                  <span className="lx-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="lx-plan-sub">
+                  <span className="lx-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="lx-plan-sub">
+                  <span className="lx-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 05 — LUXURY & ELEGANT (BOOKS_VIEW_TEMPLATES/template-05-*.md,
@@ -18,7 +108,6 @@ export function LuxuryElegantWebsite({ studio, sections, albums, featuredPhotos,
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-luxury">
@@ -73,20 +162,25 @@ export function LuxuryElegantWebsite({ studio, sections, albums, featuredPhotos,
         .tpl-web-luxury .lx-about { text-align: center; }
         .tpl-web-luxury .lx-about p { font-size: 15px; line-height: 1.8; color: #4a3f31; max-width: 620px; margin: 0 auto; }
 
-        .tpl-web-luxury .lx-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
-        .tpl-web-luxury .lx-plan { border: 1px solid #ddccae; border-radius: 6px; overflow: hidden; background: #fbf7ef; }
-        .tpl-web-luxury .lx-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 22px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-luxury .lx-plan-name { font-family: "Cormorant Garamond", serif; font-size: 17px; font-weight: 600; }
-        .tpl-web-luxury .lx-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-luxury .lx-plan-price strong { font-family: "Cormorant Garamond", serif; font-size: 19px; color: #a08f6b; }
-        .tpl-web-luxury .lx-plan-price span { font-size: 11px; color: #8a7c65; }
-        .tpl-web-luxury .lx-plan-head svg { color: #a08f6b; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-luxury .lx-plan.open .lx-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-luxury .lx-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-luxury .lx-plan.open .lx-plan-body { max-height: 320px; }
-        .tpl-web-luxury .lx-plan-body-inner { padding: 0 22px 18px; }
-        .tpl-web-luxury .lx-plan-body p { font-size: 13px; color: #6b5d4a; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-luxury .lx-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #4a3f31; line-height: 1.9; }
+        .tpl-web-luxury .lx-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-luxury .lx-plan-card { border: 1px solid #ddccae; border-radius: 6px; padding: 28px 26px; background: #fbf7ef; display: flex; flex-direction: column; }
+        .tpl-web-luxury .lx-plan-card h3 { font-family: "Cormorant Garamond", serif; font-size: 18px; font-weight: 600; margin: 0 0 10px; }
+        .tpl-web-luxury .lx-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-luxury .lx-plan-card-price strong { font-family: "Cormorant Garamond", serif; font-size: 26px; color: #a08f6b; }
+        .tpl-web-luxury .lx-plan-card-price span { font-size: 12px; color: #8a7c65; }
+        .tpl-web-luxury .lx-plan-tagline { font-family: "Cormorant Garamond", serif; font-style: italic; font-size: 15px; color: #6b5d4a; margin: 0 0 14px; }
+        .tpl-web-luxury .lx-plan-desc { margin: 0 0 14px; }
+        .tpl-web-luxury .lx-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #a08f6b; margin-bottom: 6px; }
+        .tpl-web-luxury .lx-plan-desc p { font-size: 13px; color: #6b5d4a; line-height: 1.7; margin: 0; }
+        .tpl-web-luxury .lx-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 600; color: #a08f6b; cursor: pointer; font-family: inherit; }
+        .tpl-web-luxury .lx-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #ddccae; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-luxury .lx-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-luxury .lx-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #4a3f31; line-height: 1.5; }
+        .tpl-web-luxury .lx-plan-features svg { color: #a08f6b; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-luxury .lx-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #a08f6b; margin-bottom: 8px; }
+        .tpl-web-luxury .lx-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-luxury .lx-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #4a3f31; line-height: 1.5; }
+        .tpl-web-luxury .lx-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #8a7c65; }
 
         .tpl-web-luxury .lx-contact { background: #2c241c; color: #f4ede2; padding: 48px 48px 24px; }
         .tpl-web-luxury .lx-contact-row { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: #d8cdb9; margin-bottom: 20px; }
@@ -188,37 +282,9 @@ export function LuxuryElegantWebsite({ studio, sections, albums, featuredPhotos,
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="lx-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`lx-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="lx-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="lx-plan-name">{plan.name}</span>
-                    <div className="lx-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="lx-plan-body">
-                    <div className="lx-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <LxPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

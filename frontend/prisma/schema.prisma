@@ -83,10 +83,21 @@ model WebsitePricingPlan {
   name        String
   price       String
   unit        String?
+  /// Short italicized quote shown under the price (e.g. "Lựa chọn tinh tế
+  /// cho album kỷ niệm") — distinct from `description`, which is a longer
+  /// plain-text blurb.
+  tagline     String?
   description String?
-  /// string[] of included items, rendered as a bullet list when the plan
-  /// row is expanded.
+  /// string[] of included items, rendered as a bullet list inside the
+  /// card's "Xem chi tiết" (view details) toggle.
   features    Json?
+  /// string[] — three more optional detail lists shown alongside
+  /// `features` inside the same toggle, each with its own icon+label and
+  /// only rendered when non-empty: printProducts ("Sản phẩm in"),
+  /// gifts ("Quà tặng"), notes ("Lưu ý").
+  printProducts Json?
+  gifts         Json?
+  notes         Json?
   orderIndex  Int      @default(0)
   enabled     Boolean  @default(true)
   createdAt   DateTime @default(now())

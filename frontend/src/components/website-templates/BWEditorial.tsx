@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function BwPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="bw-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="bw-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="bw-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="bw-plan-desc">
+          <span className="bw-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="bw-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="bw-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="bw-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="bw-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="bw-plan-sub">
+                  <span className="bw-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="bw-plan-sub">
+                  <span className="bw-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="bw-plan-sub">
+                  <span className="bw-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 04 — BLACK & WHITE EDITORIAL (BOOKS_VIEW_TEMPLATES/
@@ -18,7 +108,6 @@ export function BWEditorialWebsite({ studio, sections, albums, featuredPhotos, p
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-bw">
@@ -65,20 +154,25 @@ export function BWEditorialWebsite({ studio, sections, albums, featuredPhotos, p
 
         .tpl-web-bw .bw-about p { font-size: 15px; color: #d0d0d0; line-height: 1.8; max-width: 640px; }
 
-        .tpl-web-bw .bw-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
-        .tpl-web-bw .bw-plan { border: 1px solid #232323; overflow: hidden; background: #141414; }
-        .tpl-web-bw .bw-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-bw .bw-plan-name { font-size: 14px; font-weight: 800; text-transform: uppercase; }
-        .tpl-web-bw .bw-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-bw .bw-plan-price strong { font-size: 17px; color: #fff; }
-        .tpl-web-bw .bw-plan-price span { font-size: 11px; color: #8a8a8a; }
-        .tpl-web-bw .bw-plan-head svg { color: #8a8a8a; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-bw .bw-plan.open .bw-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-bw .bw-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-bw .bw-plan.open .bw-plan-body { max-height: 320px; }
-        .tpl-web-bw .bw-plan-body-inner { padding: 0 20px 18px; }
-        .tpl-web-bw .bw-plan-body p { font-size: 13px; color: #b5b5b5; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-bw .bw-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #d0d0d0; line-height: 1.9; }
+        .tpl-web-bw .bw-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-bw .bw-plan-card { border: 1px solid #232323; padding: 28px 24px; background: #141414; display: flex; flex-direction: column; }
+        .tpl-web-bw .bw-plan-card h3 { font-size: 15px; font-weight: 800; text-transform: uppercase; margin: 0 0 10px; }
+        .tpl-web-bw .bw-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-bw .bw-plan-card-price strong { font-size: 24px; color: #fff; }
+        .tpl-web-bw .bw-plan-card-price span { font-size: 12px; color: #8a8a8a; }
+        .tpl-web-bw .bw-plan-tagline { font-style: italic; font-size: 13px; color: #b5b5b5; margin: 0 0 14px; }
+        .tpl-web-bw .bw-plan-desc { margin: 0 0 14px; }
+        .tpl-web-bw .bw-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #b5b5b5; margin-bottom: 6px; }
+        .tpl-web-bw .bw-plan-desc p { font-size: 13px; color: #b5b5b5; line-height: 1.7; margin: 0; }
+        .tpl-web-bw .bw-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #f5f5f5; cursor: pointer; font-family: inherit; }
+        .tpl-web-bw .bw-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #232323; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-bw .bw-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-bw .bw-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #d0d0d0; line-height: 1.5; }
+        .tpl-web-bw .bw-plan-features svg { color: #fff; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-bw .bw-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #b5b5b5; margin-bottom: 8px; }
+        .tpl-web-bw .bw-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-bw .bw-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #d0d0d0; line-height: 1.5; }
+        .tpl-web-bw .bw-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #8a8a8a; }
 
         .tpl-web-bw .bw-contact { border-top: 1px solid #232323; padding: 48px 48px 24px; }
         .tpl-web-bw .bw-contact-row { display: flex; gap: 28px; flex-wrap: wrap; font-size: 13px; color: #b5b5b5; margin-bottom: 20px; }
@@ -169,37 +263,9 @@ export function BWEditorialWebsite({ studio, sections, albums, featuredPhotos, p
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="bw-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`bw-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="bw-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="bw-plan-name">{plan.name}</span>
-                    <div className="bw-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="bw-plan-body">
-                    <div className="bw-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <BwPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

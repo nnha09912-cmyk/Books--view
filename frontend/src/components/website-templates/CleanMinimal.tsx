@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function CmPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="cm-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="cm-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="cm-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="cm-plan-desc">
+          <span className="cm-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="cm-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="cm-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="cm-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="cm-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="cm-plan-sub">
+                  <span className="cm-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="cm-plan-sub">
+                  <span className="cm-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="cm-plan-sub">
+                  <span className="cm-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 10 — CLEAN MINIMAL (BOOKS_VIEW_TEMPLATES/template-10-*.md,
@@ -18,7 +108,6 @@ export function CleanMinimalWebsite({ studio, sections, albums, featuredPhotos, 
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-clean">
@@ -70,20 +159,25 @@ export function CleanMinimalWebsite({ studio, sections, albums, featuredPhotos, 
           padding: 11px 24px; text-decoration: none;
         }
 
-        .tpl-web-clean .cm-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; text-align: left; }
-        .tpl-web-clean .cm-plan { border: 1px solid #e2e2e2; overflow: hidden; background: #fff; }
-        .tpl-web-clean .cm-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-clean .cm-plan-name { font-size: 13.5px; font-weight: 600; }
-        .tpl-web-clean .cm-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-clean .cm-plan-price strong { font-size: 16px; font-weight: 600; }
-        .tpl-web-clean .cm-plan-price span { font-size: 11px; color: #a0a0a0; }
-        .tpl-web-clean .cm-plan-head svg { color: #a0a0a0; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-clean .cm-plan.open .cm-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-clean .cm-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-clean .cm-plan.open .cm-plan-body { max-height: 320px; }
-        .tpl-web-clean .cm-plan-body-inner { padding: 0 20px 16px; }
-        .tpl-web-clean .cm-plan-body p { font-size: 13px; color: #6a6a6a; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-clean .cm-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #5a5a5a; line-height: 1.9; }
+        .tpl-web-clean .cm-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-clean .cm-plan-card { border: 1px solid #e2e2e2; padding: 28px 24px; background: #fff; display: flex; flex-direction: column; text-align: left; }
+        .tpl-web-clean .cm-plan-card h3 { font-size: 14.5px; font-weight: 600; margin: 0 0 10px; }
+        .tpl-web-clean .cm-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-clean .cm-plan-card-price strong { font-size: 22px; font-weight: 600; }
+        .tpl-web-clean .cm-plan-card-price span { font-size: 12px; color: #a0a0a0; }
+        .tpl-web-clean .cm-plan-tagline { font-style: italic; font-size: 13px; color: #6a6a6a; margin: 0 0 14px; }
+        .tpl-web-clean .cm-plan-desc { margin: 0 0 14px; }
+        .tpl-web-clean .cm-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; color: #a0a0a0; margin-bottom: 6px; }
+        .tpl-web-clean .cm-plan-desc p { font-size: 13px; color: #6a6a6a; line-height: 1.7; margin: 0; }
+        .tpl-web-clean .cm-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 500; color: #2a2a2a; cursor: pointer; font-family: inherit; }
+        .tpl-web-clean .cm-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e2e2; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-clean .cm-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-clean .cm-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #5a5a5a; line-height: 1.5; }
+        .tpl-web-clean .cm-plan-features svg { color: #2a2a2a; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-clean .cm-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; color: #a0a0a0; margin-bottom: 8px; }
+        .tpl-web-clean .cm-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-clean .cm-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #5a5a5a; line-height: 1.5; }
+        .tpl-web-clean .cm-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #a0a0a0; }
 
         .tpl-web-clean .cm-contact { background: #f2f2f2; padding: 40px 48px 20px; }
         .tpl-web-clean .cm-contact-row { display: flex; justify-content: center; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #6a6a6a; margin-bottom: 16px; }
@@ -170,37 +264,9 @@ export function CleanMinimalWebsite({ studio, sections, albums, featuredPhotos, 
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="cm-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`cm-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="cm-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="cm-plan-name">{plan.name}</span>
-                    <div className="cm-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="cm-plan-body">
-                    <div className="cm-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <CmPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

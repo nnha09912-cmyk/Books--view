@@ -11,8 +11,12 @@ const patchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   price: z.string().trim().min(1).max(60).optional(),
   unit: z.string().trim().max(40).nullable().optional(),
+  tagline: z.string().trim().max(160).nullable().optional(),
   description: z.string().trim().max(1000).nullable().optional(),
   features: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  printProducts: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  gifts: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  notes: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
   enabled: z.boolean().optional(),
 });
 
@@ -30,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError("Dữ liệu không hợp lệ", 400);
-  const { name, price, unit, description, features, enabled } = parsed.data;
+  const { name, price, unit, tagline, description, features, printProducts, gifts, notes, enabled } = parsed.data;
 
   const plan = await prisma.websitePricingPlan.update({
     where: { id: params.id },
@@ -38,8 +42,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(name !== undefined ? { name } : {}),
       ...(price !== undefined ? { price } : {}),
       ...(unit !== undefined ? { unit } : {}),
+      ...(tagline !== undefined ? { tagline } : {}),
       ...(description !== undefined ? { description } : {}),
       ...(features !== undefined ? { features } : {}),
+      ...(printProducts !== undefined ? { printProducts } : {}),
+      ...(gifts !== undefined ? { gifts } : {}),
+      ...(notes !== undefined ? { notes } : {}),
       ...(enabled !== undefined ? { enabled } : {}),
     },
   });

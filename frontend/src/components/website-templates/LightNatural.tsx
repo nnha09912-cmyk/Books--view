@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function LnPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="ln-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="ln-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="ln-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="ln-plan-desc">
+          <span className="ln-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="ln-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="ln-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="ln-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="ln-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="ln-plan-sub">
+                  <span className="ln-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="ln-plan-sub">
+                  <span className="ln-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="ln-plan-sub">
+                  <span className="ln-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 03 — LIGHT & NATURAL (BOOKS_VIEW_TEMPLATES/template-03-*.md,
@@ -18,7 +108,6 @@ export function LightNaturalWebsite({ studio, sections, albums, featuredPhotos, 
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-light">
@@ -70,20 +159,25 @@ export function LightNaturalWebsite({ studio, sections, albums, featuredPhotos, 
         .tpl-web-light .ln-about h2 { font-family: "Cormorant Garamond", serif; font-style: italic; font-size: 28px; margin: 8px 0 16px; }
         .tpl-web-light .ln-about p { font-size: 15px; line-height: 1.8; color: #4b5140; }
 
-        .tpl-web-light .ln-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; text-align: left; }
-        .tpl-web-light .ln-plan { border: 1px solid #e3e7db; border-radius: 8px; overflow: hidden; background: #fff; }
-        .tpl-web-light .ln-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-light .ln-plan-name { font-size: 14px; font-weight: 700; }
-        .tpl-web-light .ln-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-light .ln-plan-price strong { font-family: "Cormorant Garamond", serif; font-size: 18px; color: #4b6b3a; }
-        .tpl-web-light .ln-plan-price span { font-size: 11px; color: #8a927c; }
-        .tpl-web-light .ln-plan-head svg { color: #8a927c; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-light .ln-plan.open .ln-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-light .ln-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-light .ln-plan.open .ln-plan-body { max-height: 320px; }
-        .tpl-web-light .ln-plan-body-inner { padding: 0 20px 16px; }
-        .tpl-web-light .ln-plan-body p { font-size: 13px; color: #5c6355; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-light .ln-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #4b5140; line-height: 1.9; }
+        .tpl-web-light .ln-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-light .ln-plan-card { border: 1px solid #e3e7db; border-radius: 8px; padding: 28px 24px; background: #fff; display: flex; flex-direction: column; text-align: left; }
+        .tpl-web-light .ln-plan-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 10px; }
+        .tpl-web-light .ln-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-light .ln-plan-card-price strong { font-family: "Cormorant Garamond", serif; font-size: 24px; color: #4b6b3a; }
+        .tpl-web-light .ln-plan-card-price span { font-size: 12px; color: #8a927c; }
+        .tpl-web-light .ln-plan-tagline { font-family: "Cormorant Garamond", serif; font-style: italic; font-size: 15px; color: #5c6355; margin: 0 0 14px; }
+        .tpl-web-light .ln-plan-desc { margin: 0 0 14px; }
+        .tpl-web-light .ln-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6f7a5f; margin-bottom: 6px; }
+        .tpl-web-light .ln-plan-desc p { font-size: 13px; color: #5c6355; line-height: 1.7; margin: 0; }
+        .tpl-web-light .ln-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 600; color: #6f7a5f; cursor: pointer; font-family: inherit; }
+        .tpl-web-light .ln-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #eef1e7; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-light .ln-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-light .ln-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #4b5140; line-height: 1.5; }
+        .tpl-web-light .ln-plan-features svg { color: #6f7a5f; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-light .ln-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6f7a5f; margin-bottom: 8px; }
+        .tpl-web-light .ln-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-light .ln-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #4b5140; line-height: 1.5; }
+        .tpl-web-light .ln-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #8a927c; }
 
         .tpl-web-light .ln-contact { padding: 56px 48px; text-align: center; border-top: 1px solid #eef1e7; }
         .tpl-web-light .ln-contact-row { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: #5c6355; margin: 18px 0 0; }
@@ -167,37 +261,9 @@ export function LightNaturalWebsite({ studio, sections, albums, featuredPhotos, 
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="ln-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`ln-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="ln-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="ln-plan-name">{plan.name}</span>
-                    <div className="ln-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="ln-plan-body">
-                    <div className="ln-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <LnPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

@@ -69,7 +69,18 @@ export async function GET(
     }),
     prisma.websitePricingPlan.findMany({
       where: { studio: { slug: params.slug }, enabled: true },
-      select: { id: true, name: true, price: true, unit: true, description: true, features: true },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        unit: true,
+        tagline: true,
+        description: true,
+        features: true,
+        printProducts: true,
+        gifts: true,
+        notes: true,
+      },
       orderBy: { orderIndex: "asc" },
     }),
   ]);
@@ -124,8 +135,12 @@ export async function GET(
       name: p.name,
       price: p.price,
       unit: p.unit,
+      tagline: p.tagline,
       description: p.description,
       features: Array.isArray(p.features) ? (p.features as string[]) : [],
+      printProducts: Array.isArray(p.printProducts) ? (p.printProducts as string[]) : [],
+      gifts: Array.isArray(p.gifts) ? (p.gifts as string[]) : [],
+      notes: Array.isArray(p.notes) ? (p.notes as string[]) : [],
     })),
   });
 }

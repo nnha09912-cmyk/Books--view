@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, Sparkles, Video, Radio, Film, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Sparkles, Video, Radio, Film, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function EvPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="ev-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="ev-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="ev-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="ev-plan-desc">
+          <span className="ev-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="ev-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="ev-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="ev-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="ev-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="ev-plan-sub">
+                  <span className="ev-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="ev-plan-sub">
+                  <span className="ev-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="ev-plan-sub">
+                  <span className="ev-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 16 — EVENT / SỰ KIỆN (BOOKS_VIEW_TEMPLATES/template-16-*.md,
@@ -18,7 +108,6 @@ export function EventWebsite({ studio, sections, albums, featuredPhotos, pricing
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-event">
@@ -78,20 +167,25 @@ export function EventWebsite({ studio, sections, albums, featuredPhotos, pricing
 
         .tpl-web-event .ev-about p { font-size: 15px; color: #cfc7b3; line-height: 1.85; max-width: 640px; margin: 0 auto; text-align: center; }
 
-        .tpl-web-event .ev-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
-        .tpl-web-event .ev-plan { border: 1px solid #221f16; overflow: hidden; background: #141310; }
-        .tpl-web-event .ev-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-event .ev-plan-name { font-size: 14px; font-weight: 700; }
-        .tpl-web-event .ev-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-event .ev-plan-price strong { font-size: 17px; color: #c9a154; }
-        .tpl-web-event .ev-plan-price span { font-size: 11px; color: #a89f8a; }
-        .tpl-web-event .ev-plan-head svg { color: #a89f8a; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-event .ev-plan.open .ev-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-event .ev-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-event .ev-plan.open .ev-plan-body { max-height: 320px; }
-        .tpl-web-event .ev-plan-body-inner { padding: 0 20px 18px; }
-        .tpl-web-event .ev-plan-body p { font-size: 13px; color: #a89f8a; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-event .ev-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #cfc7b3; line-height: 1.9; }
+        .tpl-web-event .ev-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-event .ev-plan-card { border: 1px solid #221f16; padding: 28px 24px; background: #141310; display: flex; flex-direction: column; }
+        .tpl-web-event .ev-plan-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 10px; }
+        .tpl-web-event .ev-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-event .ev-plan-card-price strong { font-size: 24px; color: #c9a154; }
+        .tpl-web-event .ev-plan-card-price span { font-size: 12px; color: #a89f8a; }
+        .tpl-web-event .ev-plan-tagline { font-style: italic; font-size: 13px; color: #a89f8a; margin: 0 0 14px; }
+        .tpl-web-event .ev-plan-desc { margin: 0 0 14px; }
+        .tpl-web-event .ev-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #c9a154; margin-bottom: 6px; }
+        .tpl-web-event .ev-plan-desc p { font-size: 13px; color: #a89f8a; line-height: 1.7; margin: 0; }
+        .tpl-web-event .ev-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 700; color: #c9a154; cursor: pointer; font-family: inherit; }
+        .tpl-web-event .ev-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #221f16; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-event .ev-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-event .ev-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #cfc7b3; line-height: 1.5; }
+        .tpl-web-event .ev-plan-features svg { color: #c9a154; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-event .ev-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #c9a154; margin-bottom: 8px; }
+        .tpl-web-event .ev-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-event .ev-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #cfc7b3; line-height: 1.5; }
+        .tpl-web-event .ev-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #a89f8a; }
 
         .tpl-web-event .ev-contact { background: #050505; padding: 44px 48px 22px; }
         .tpl-web-event .ev-contact-row { display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #a89f8a; margin-bottom: 18px; }
@@ -204,37 +298,9 @@ export function EventWebsite({ studio, sections, albums, featuredPhotos, pricing
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="ev-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`ev-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="ev-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="ev-plan-name">{plan.name}</span>
-                    <div className="ev-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="ev-plan-body">
-                    <div className="ev-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <EvPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

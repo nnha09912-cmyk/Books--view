@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Camera, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function McPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="mc-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="mc-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="mc-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="mc-plan-desc">
+          <span className="mc-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="mc-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="mc-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="mc-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="mc-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="mc-plan-sub">
+                  <span className="mc-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="mc-plan-sub">
+                  <span className="mc-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="mc-plan-sub">
+                  <span className="mc-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 06 — MODERN & CREATIVE (BOOKS_VIEW_TEMPLATES/template-06-*.md,
@@ -19,7 +109,6 @@ export function ModernCreativeWebsite({ studio, sections, albums, featuredPhotos
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
   const bento = featuredPhotos.slice(0, 4);
 
   return (
@@ -64,20 +153,25 @@ export function ModernCreativeWebsite({ studio, sections, albums, featuredPhotos
 
         .tpl-web-modern .mc-about p { font-size: 15px; color: #333; line-height: 1.8; max-width: 640px; }
 
-        .tpl-web-modern .mc-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
-        .tpl-web-modern .mc-plan { border: 1px solid #e5e5e5; overflow: hidden; background: #fafafa; }
-        .tpl-web-modern .mc-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-modern .mc-plan-name { font-weight: 800; font-size: 14px; text-transform: uppercase; }
-        .tpl-web-modern .mc-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-modern .mc-plan-price strong { font-weight: 900; font-size: 17px; }
-        .tpl-web-modern .mc-plan-price span { font-size: 11px; color: #9a9a9a; }
-        .tpl-web-modern .mc-plan-head svg { color: #9a9a9a; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-modern .mc-plan.open .mc-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-modern .mc-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-modern .mc-plan.open .mc-plan-body { max-height: 320px; }
-        .tpl-web-modern .mc-plan-body-inner { padding: 0 20px 18px; }
-        .tpl-web-modern .mc-plan-body p { font-size: 13px; color: #4a4a4a; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-modern .mc-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; line-height: 1.9; }
+        .tpl-web-modern .mc-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-modern .mc-plan-card { border: 1px solid #e5e5e5; padding: 28px 24px; background: #fafafa; display: flex; flex-direction: column; }
+        .tpl-web-modern .mc-plan-card h3 { font-weight: 800; font-size: 15px; text-transform: uppercase; margin: 0 0 10px; }
+        .tpl-web-modern .mc-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-modern .mc-plan-card-price strong { font-weight: 900; font-size: 24px; }
+        .tpl-web-modern .mc-plan-card-price span { font-size: 12px; color: #9a9a9a; }
+        .tpl-web-modern .mc-plan-tagline { font-style: italic; font-size: 13px; color: #4a4a4a; margin: 0 0 14px; }
+        .tpl-web-modern .mc-plan-desc { margin: 0 0 14px; }
+        .tpl-web-modern .mc-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #0a0a0a; margin-bottom: 6px; }
+        .tpl-web-modern .mc-plan-desc p { font-size: 13px; color: #4a4a4a; line-height: 1.7; margin: 0; }
+        .tpl-web-modern .mc-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: #0a0a0a; cursor: pointer; font-family: inherit; }
+        .tpl-web-modern .mc-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e5e5e5; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-modern .mc-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-modern .mc-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #333; line-height: 1.5; }
+        .tpl-web-modern .mc-plan-features svg { color: #0a0a0a; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-modern .mc-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #0a0a0a; margin-bottom: 8px; }
+        .tpl-web-modern .mc-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-modern .mc-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #333; line-height: 1.5; }
+        .tpl-web-modern .mc-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #9a9a9a; }
 
         .tpl-web-modern .mc-contact { background: #0a0a0a; color: #fff; padding: 48px 48px 24px; }
         .tpl-web-modern .mc-contact-row { display: flex; gap: 28px; flex-wrap: wrap; font-size: 13px; color: #d0d0d0; margin-bottom: 20px; }
@@ -170,37 +264,9 @@ export function ModernCreativeWebsite({ studio, sections, albums, featuredPhotos
             <span className="mc-eyebrow">Các gói dịch vụ</span>
           </div>
           <div className="mc-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`mc-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="mc-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="mc-plan-name">{plan.name}</span>
-                    <div className="mc-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="mc-plan-body">
-                    <div className="mc-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <McPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}

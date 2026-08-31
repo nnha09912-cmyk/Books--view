@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { LogOut, ExternalLink, Trash2, Plus, ChevronDown, X } from "lucide-react";
+import { LogOut, ExternalLink, Trash2, Plus, ChevronDown, X, Printer, Gift, ShieldAlert } from "lucide-react";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -475,18 +475,38 @@ interface PricingPlan {
   name: string;
   price: string;
   unit: string | null;
+  tagline: string | null;
   description: string | null;
   features: string[];
+  printProducts: string[];
+  gifts: string[];
+  notes: string[];
 }
 
-const emptyPlanForm = { name: "", price: "", unit: "", description: "", features: "" };
+function formatVNDInput(raw: string) {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "đ";
+}
+
+const emptyPlanForm = {
+  name: "",
+  price: "",
+  unit: "",
+  tagline: "",
+  description: "",
+  features: "",
+  printProducts: "",
+  gifts: "",
+  notes: "",
+};
 
 /** "Bảng giá" (Settings → Website Studio) — CRUD for the Studio's own
- * price list, shown as a dropdown accordion on templates that support it
- * (currently the Landing Page demo template). Saves immediately per action
- * (create/update/delete each hit their own endpoint) rather than batching
- * with the main "Lưu thay đổi" button below, since it's its own resource —
- * same reasoning as Albums being managed on their own page elsewhere. */
+ * price list, shown as full always-visible cards on every template. Saves
+ * immediately per action (create/update/delete each hit their own
+ * endpoint) rather than batching with the main "Lưu thay đổi" button
+ * below, since it's its own resource — same reasoning as Albums being
+ * managed on their own page elsewhere. */
 function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -494,6 +514,19 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyPlanForm);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<PricingPlan | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [errors, setErrors] = useState<Set<string>>(new Set());
+
+  function updateField(key: keyof typeof emptyPlanForm, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+    setErrors((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }
 
   function load() {
     api<{ plans: PricingPlan[] }>("/api/website/pricing")
@@ -506,6 +539,7 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
   function startAdd() {
     setForm(emptyPlanForm);
     setEditingId(null);
+    setErrors(new Set());
     setAdding(true);
   }
 
@@ -514,10 +548,15 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
       name: plan.name,
       price: plan.price,
       unit: plan.unit ?? "",
+      tagline: plan.tagline ?? "",
       description: plan.description ?? "",
       features: plan.features.join("\n"),
+      printProducts: plan.printProducts.join("\n"),
+      gifts: plan.gifts.join("\n"),
+      notes: plan.notes.join("\n"),
     });
     setEditingId(plan.id);
+    setErrors(new Set());
     setAdding(true);
   }
 
@@ -525,23 +564,37 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
     setAdding(false);
     setEditingId(null);
     setForm(emptyPlanForm);
+    setErrors(new Set());
   }
 
   async function saveForm() {
-    if (!form.name.trim() || !form.price.trim()) {
-      toast("Vui lòng nhập tên gói và giá");
+    const splitLines = (v: string) =>
+      v
+        .split("\n")
+        .map((f) => f.trim())
+        .filter(Boolean);
+    const missing = new Set<string>();
+    if (!form.name.trim()) missing.add("name");
+    if (!form.price.trim()) missing.add("price");
+    if (!form.description.trim()) missing.add("description");
+    if (splitLines(form.features).length === 0) missing.add("features");
+    if (missing.size > 0) {
+      setErrors(missing);
+      toast("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
     }
+    setErrors(new Set());
     setSaving(true);
     const body = {
       name: form.name.trim(),
       price: form.price.trim(),
       unit: form.unit.trim() || undefined,
+      tagline: form.tagline.trim() || undefined,
       description: form.description.trim() || undefined,
-      features: form.features
-        .split("\n")
-        .map((f) => f.trim())
-        .filter(Boolean),
+      features: splitLines(form.features),
+      printProducts: splitLines(form.printProducts),
+      gifts: splitLines(form.gifts),
+      notes: splitLines(form.notes),
     };
     try {
       if (editingId) {
@@ -560,15 +613,19 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
     }
   }
 
-  async function removePlan(id: string) {
-    if (!window.confirm("Xoá gói giá này?")) return;
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await api(`/api/website/pricing/${id}`, { method: "DELETE" });
+      await api(`/api/website/pricing/${deleteTarget.id}`, { method: "DELETE" });
       toast("Đã xoá gói giá");
+      setDeleteTarget(null);
       load();
       onChanged();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Không thể xoá");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -621,7 +678,7 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
                   <Button variant="ghost" size="sm" onClick={() => startEdit(plan)}>
                     Sửa
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => removePlan(plan.id)}>
+                  <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(plan)}>
                     <Trash2 size={14} />
                   </Button>
                 </div>
@@ -642,9 +699,9 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
                 <div className="field">
                   <label>Tên gói</label>
                   <input
-                    className="input"
+                    className={errors.has("name") ? "input error" : "input"}
                     value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    onChange={(e) => updateField("name", e.target.value)}
                     placeholder="Gói Cơ Bản"
                   />
                 </div>
@@ -652,14 +709,14 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
                   <div className="field" style={{ flex: 1 }}>
                     <label>Giá</label>
                     <input
-                      className="input"
+                      className={errors.has("price") ? "input error" : "input"}
                       value={form.price}
-                      onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                      onChange={(e) => updateField("price", formatVNDInput(e.target.value))}
                       placeholder="5.000.000đ"
                     />
                   </div>
                   <div className="field" style={{ flex: 1 }}>
-                    <label>Đơn vị (không bắt buộc)</label>
+                    <label>Thời gian</label>
                     <input
                       className="input"
                       value={form.unit}
@@ -669,22 +726,70 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
                   </div>
                 </div>
                 <div className="field">
-                  <label>Mô tả (không bắt buộc)</label>
-                  <textarea
+                  <label>Câu trích dẫn</label>
+                  <input
                     className="input"
+                    value={form.tagline}
+                    onChange={(e) => setForm((f) => ({ ...f, tagline: e.target.value }))}
+                    placeholder="Lựa chọn tinh tế cho album kỷ niệm"
+                  />
+                </div>
+                <div className="field">
+                  <label>Mô tả</label>
+                  <textarea
+                    className={errors.has("description") ? "input error" : "input"}
                     value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    onChange={(e) => updateField("description", e.target.value)}
                     placeholder="Mô tả ngắn về gói dịch vụ này"
                   />
                 </div>
                 <div className="field">
-                  <label>Nội dung gói (mỗi dòng 1 mục)</label>
+                  <label>Nội dung gói</label>
                   <textarea
-                    className="input"
+                    className={errors.has("features") ? "input error" : "input"}
                     value={form.features}
-                    onChange={(e) => setForm((f) => ({ ...f, features: e.target.value }))}
+                    onChange={(e) => updateField("features", e.target.value)}
                     placeholder={"200 ảnh đã chỉnh sửa\n1 album in ấn\nQuay phim 5 phút"}
                     rows={4}
+                  />
+                </div>
+                <div className="field">
+                  <label>
+                    <Printer size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
+                    Sản phẩm in
+                  </label>
+                  <textarea
+                    className="input"
+                    value={form.printProducts}
+                    onChange={(e) => setForm((f) => ({ ...f, printProducts: e.target.value }))}
+                    placeholder={"Ảnh in trên thuỷ tinh cao cấp 60x90 cm\nAlbum photobook 25x38 cm — 30 trang"}
+                    rows={3}
+                  />
+                </div>
+                <div className="field">
+                  <label>
+                    <Gift size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
+                    Quà tặng
+                  </label>
+                  <textarea
+                    className="input"
+                    value={form.gifts}
+                    onChange={(e) => setForm((f) => ({ ...f, gifts: e.target.value }))}
+                    placeholder={"Video slide ảnh phát ngày cưới\nMượn 01 váy cưới VIP"}
+                    rows={3}
+                  />
+                </div>
+                <div className="field">
+                  <label>
+                    <ShieldAlert size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
+                    Lưu ý
+                  </label>
+                  <textarea
+                    className="input"
+                    value={form.notes}
+                    onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                    placeholder={"Giá áp dụng khi khách hàng sử dụng đúng theo các hạng mục đưa ra ở trên"}
+                    rows={3}
                   />
                 </div>
                 <div className="flex gap-sm">
@@ -700,6 +805,25 @@ function WebsitePricingCard({ onChanged }: { onChanged: () => void }) {
           </div>
         )}
       </div>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent style={{ maxWidth: 420 }}>
+          <DialogHeader>
+            <DialogTitle>Xoá gói giá</DialogTitle>
+          </DialogHeader>
+          <p className="text-secondary text-sm">
+            Xoá gói &quot;{deleteTarget?.name}&quot;? Hành động này không thể hoàn tác.
+          </p>
+          <div className="modal-foot">
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Huỷ
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? "Đang xoá..." : "Xoá gói"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

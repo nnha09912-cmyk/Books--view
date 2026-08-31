@@ -28,8 +28,12 @@ export interface WebsitePricingPlanData {
   name: string;
   price: string;
   unit: string | null;
+  tagline: string | null;
   description: string | null;
   features: string[];
+  printProducts: string[];
+  gifts: string[];
+  notes: string[];
 }
 
 export interface WebsiteStudioProfile {

@@ -1,11 +1,101 @@
-import Link from "next/link";
 import { useState } from "react";
-import { Camera, Lightbulb, LayoutGrid, HeartHandshake, ShoppingBag, Phone, Mail, MapPin, ChevronDown } from "lucide-react";
-import type { WebsiteTemplateProps } from "./types";
+import Link from "next/link";
+import { Camera, Lightbulb, LayoutGrid, HeartHandshake, ShoppingBag, Phone, Mail, MapPin, Check, ChevronDown, ChevronUp, Printer, Gift, ShieldAlert, CornerDownRight } from "lucide-react";
+import type { WebsiteTemplateProps, WebsitePricingPlanData } from "./types";
 
 function isEnabled(sections: WebsiteTemplateProps["sections"], type: string) {
   const row = sections.find((s) => s.type === type);
   return row ? row.enabled : true;
+}
+
+function PrPricingCard({ plan, showCta }: { plan: WebsitePricingPlanData; showCta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    plan.features.length > 0 || plan.printProducts.length > 0 || plan.gifts.length > 0 || plan.notes.length > 0;
+  return (
+    <div className="pr-plan-card">
+      <h3>{plan.name}</h3>
+      <div className="pr-plan-card-price">
+        <strong>{plan.price}</strong>
+        {plan.unit && <span>{plan.unit}</span>}
+      </div>
+      {plan.tagline && <p className="pr-plan-tagline">&quot;{plan.tagline}&quot;</p>}
+      {plan.description && (
+        <div className="pr-plan-desc">
+          <span className="pr-plan-desc-label">
+            <Camera size={13} /> Dịch vụ
+          </span>
+          <p>{plan.description}</p>
+        </div>
+      )}
+      {showCta && (
+        <a className="pr-cta" href="#contact" style={{ justifyContent: "center" }}>
+          Tư vấn ngay
+        </a>
+      )}
+      {hasDetails && (
+        <>
+          <button type="button" className="pr-plan-toggle" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Xem chi tiết"}
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {open && (
+            <div className="pr-plan-details">
+              {plan.features.length > 0 && (
+                <ul className="pr-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.printProducts.length > 0 && (
+                <div className="pr-plan-sub">
+                  <span className="pr-plan-sub-label">
+                    <Printer size={13} /> Sản phẩm in
+                  </span>
+                  <ul>
+                    {plan.printProducts.map((p) => (
+                      <li key={p}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.gifts.length > 0 && (
+                <div className="pr-plan-sub">
+                  <span className="pr-plan-sub-label">
+                    <Gift size={13} /> Quà tặng
+                  </span>
+                  <ul>
+                    {plan.gifts.map((g) => (
+                      <li key={g}>
+                        <CornerDownRight size={12} />
+                        {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {plan.notes.length > 0 && (
+                <div className="pr-plan-sub">
+                  <span className="pr-plan-sub-label">
+                    <ShieldAlert size={13} /> Lưu ý
+                  </span>
+                  <ul>
+                    {plan.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /** TEMPLATE 17 — PRODUCT / SẢN PHẨM (BOOKS_VIEW_TEMPLATES/template-17-*.md,
@@ -18,7 +108,6 @@ export function ProductWebsite({ studio, sections, albums, featuredPhotos, prici
   const showAbout = isEnabled(sections, "about") && !!studio.description;
   const showContact = isEnabled(sections, "contact");
   const showPricing = pricingPlans.length > 0;
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
 
   return (
     <div className="tpl-web-product">
@@ -75,20 +164,25 @@ export function ProductWebsite({ studio, sections, albums, featuredPhotos, prici
         .tpl-web-product .pr-about-photo { width: 220px; aspect-ratio: 4/3; border-radius: 14px; overflow: hidden; background: #ecdfc6; }
         .tpl-web-product .pr-about-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-        .tpl-web-product .pr-pricing { display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; text-align: left; }
-        .tpl-web-product .pr-plan { border: 1px solid #e6dcc8; border-radius: 10px; overflow: hidden; background: #fff; }
-        .tpl-web-product .pr-plan-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 20px; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
-        .tpl-web-product .pr-plan-name { font-size: 14px; font-weight: 700; }
-        .tpl-web-product .pr-plan-price { display: flex; align-items: baseline; gap: 12px; }
-        .tpl-web-product .pr-plan-price strong { font-size: 17px; color: #a8875a; }
-        .tpl-web-product .pr-plan-price span { font-size: 11px; color: #8a7c65; }
-        .tpl-web-product .pr-plan-head svg { color: #a8875a; transition: transform 0.2s ease; flex-shrink: 0; }
-        .tpl-web-product .pr-plan.open .pr-plan-head svg { transform: rotate(180deg); }
-        .tpl-web-product .pr-plan-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
-        .tpl-web-product .pr-plan.open .pr-plan-body { max-height: 320px; }
-        .tpl-web-product .pr-plan-body-inner { padding: 0 20px 16px; }
-        .tpl-web-product .pr-plan-body p { font-size: 13px; color: #6b5f4d; line-height: 1.7; margin: 0 0 10px; }
-        .tpl-web-product .pr-plan-body ul { margin: 0; padding-left: 18px; font-size: 13px; color: #2e2620; line-height: 1.9; }
+        .tpl-web-product .pr-pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .tpl-web-product .pr-plan-card { border: 1px solid #e6dcc8; border-radius: 10px; padding: 28px 24px; background: #fff; display: flex; flex-direction: column; text-align: left; }
+        .tpl-web-product .pr-plan-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 10px; }
+        .tpl-web-product .pr-plan-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .tpl-web-product .pr-plan-card-price strong { font-size: 24px; color: #a8875a; }
+        .tpl-web-product .pr-plan-card-price span { font-size: 12px; color: #8a7c65; }
+        .tpl-web-product .pr-plan-tagline { font-style: italic; font-size: 13px; color: #6b5f4d; margin: 0 0 14px; }
+        .tpl-web-product .pr-plan-desc { margin: 0 0 14px; }
+        .tpl-web-product .pr-plan-desc-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #a8875a; margin-bottom: 6px; }
+        .tpl-web-product .pr-plan-desc p { font-size: 13px; color: #6b5f4d; line-height: 1.7; margin: 0; }
+        .tpl-web-product .pr-plan-toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: none; padding: 12px 0 0; margin-top: auto; font-size: 12.5px; font-weight: 600; color: #a8875a; cursor: pointer; font-family: inherit; }
+        .tpl-web-product .pr-plan-details { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e6dcc8; display: flex; flex-direction: column; gap: 16px; }
+        .tpl-web-product .pr-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .tpl-web-product .pr-plan-features li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #2e2620; line-height: 1.5; }
+        .tpl-web-product .pr-plan-features svg { color: #a8875a; flex-shrink: 0; margin-top: 2px; }
+        .tpl-web-product .pr-plan-sub-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #a8875a; margin-bottom: 8px; }
+        .tpl-web-product .pr-plan-sub ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .tpl-web-product .pr-plan-sub ul li { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; color: #2e2620; line-height: 1.5; }
+        .tpl-web-product .pr-plan-sub ul li svg { flex-shrink: 0; margin-top: 2px; color: #8a7c65; }
 
         .tpl-web-product .pr-contact { background: #2e2620; color: #f7f1e7; padding: 44px 48px 22px; }
         .tpl-web-product .pr-contact-row { display: flex; gap: 26px; flex-wrap: wrap; font-size: 13px; color: #cbbfa8; margin-bottom: 18px; }
@@ -209,37 +303,9 @@ export function ProductWebsite({ studio, sections, albums, featuredPhotos, prici
             <h2>Các gói dịch vụ</h2>
           </div>
           <div className="pr-pricing">
-            {pricingPlans.map((plan) => {
-              const open = openPlan === plan.id;
-              return (
-                <div key={plan.id} className={`pr-plan${open ? " open" : ""}`}>
-                  <button
-                    type="button"
-                    className="pr-plan-head"
-                    onClick={() => setOpenPlan(open ? null : plan.id)}
-                  >
-                    <span className="pr-plan-name">{plan.name}</span>
-                    <div className="pr-plan-price">
-                      <strong>{plan.price}</strong>
-                      {plan.unit && <span>{plan.unit}</span>}
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
-                  <div className="pr-plan-body">
-                    <div className="pr-plan-body-inner">
-                      {plan.description && <p>{plan.description}</p>}
-                      {plan.features.length > 0 && (
-                        <ul>
-                          {plan.features.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {pricingPlans.map((plan) => (
+              <PrPricingCard key={plan.id} plan={plan} showCta={showContact} />
+            ))}
           </div>
         </section>
       )}
