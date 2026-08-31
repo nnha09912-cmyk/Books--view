@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hashPassword, signSession, SESSION_COOKIE } from "@/lib/auth";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { isReservedSlug } from "@/lib/reserved-slugs";
 
 const bodySchema = z.object({
   name: z.string().min(1),
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
   const baseSlug = slugify(studioName || name) || "studio";
   let slug = baseSlug;
   let n = 1;
-  while (await prisma.studio.findUnique({ where: { slug } })) {
+  while (isReservedSlug(slug) || (await prisma.studio.findUnique({ where: { slug } }))) {
     slug = `${baseSlug}-${++n}`;
   }
 

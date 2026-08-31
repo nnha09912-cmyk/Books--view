@@ -52,6 +52,37 @@ export interface PublicAlbumInfo {
   eventDate: string | null;
 }
 
+export interface PublicWebsiteInfo {
+  studio: {
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+    cover: string | null;
+    description: string | null;
+    address: string | null;
+    phone: string | null;
+    email: string;
+    socialLinks: Record<string, string> | null;
+  };
+  templateId: string;
+  sections: {
+    id: string;
+    type: string;
+    enabled: boolean;
+    orderIndex: number;
+    settings: Record<string, unknown> | null;
+  }[];
+  featuredPhotos: string[];
+  albums: {
+    id: string;
+    name: string;
+    description: string | null;
+    photoCount: number;
+    linkToken: string;
+    coverUrl: string | null;
+  }[];
+}
+
 export interface AlbumDetail {
   id: string;
   name: string;

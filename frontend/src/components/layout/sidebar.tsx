@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Images, Filter, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Images, Filter, Settings, LogOut, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
+import { useStudio } from "@/lib/use-studio";
+import { WebsiteShareDialog } from "@/components/website-share-dialog";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -16,6 +18,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { studio } = useStudio();
 
   async function handleLogout() {
     await api("/api/auth/logout", { method: "POST" });
@@ -26,11 +29,40 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <nav>
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.slice(0, 3).map(({ href, label, icon: Icon }) => {
           const active =
             href === "/albums"
               ? pathname.startsWith("/albums")
               : pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn("nav-item", active && "active")}
+            >
+              <Icon size={18} />
+              {label}
+            </Link>
+          );
+        })}
+        {studio && (
+          <WebsiteShareDialog
+            slug={studio.slug}
+            studioName={studio.name || studio.ownerName || "studio"}
+            trigger={
+              <button
+                type="button"
+                className="nav-item"
+                style={{ width: "100%", border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}
+              >
+                <Globe size={18} />
+                Wed Studio
+              </button>
+            }
+          />
+        )}
+        {navItems.slice(3).map(({ href, label, icon: Icon }) => {
+          const active = pathname.startsWith(href);
           return (
             <Link
               key={href}

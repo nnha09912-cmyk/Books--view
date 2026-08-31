@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-function ShareLinkSection({
+export function ShareLinkSection({
   title,
   badge,
   description,

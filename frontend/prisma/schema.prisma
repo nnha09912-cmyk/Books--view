@@ -27,6 +27,16 @@ model Studio {
   description      String?
   phone            String?
   website          String?
+  /// Studio Website (Website Templates_FINAL.md) fields. coverPhotoId is
+  /// the site's hero/banner image, chosen from one of the Studio's own
+  /// Album photos — loosely-referenced (no FK), validated at the API layer
+  /// to belong to this studio before ever being saved, same pattern as
+  /// Album.coverPhotoId. socialLinks is a flat {platform: url} map.
+  /// Deliberately no color/branding field here: per the spec's own Studio
+  /// Editor rule, the Template controls the color system, not the Studio.
+  coverPhotoId     String?  @db.Uuid
+  address          String?
+  socialLinks      Json?
   apiKey           String?  @unique
   isActive         Boolean  @default(true)
   googleDriveToken Json?
@@ -53,8 +63,56 @@ model Studio {
   permissions         Permission[]
   adminAccessLogs     AdminAccessLog[]
   passwordResetTokens PasswordResetToken[]
+  studioWebsite       StudioWebsite?
 
   @@map("studios")
+}
+
+/// The Studio's public-facing marketing site (Website Templates spec) — a
+/// distinct product from Album Proofing (docs: "Website Templates_FINAL.md").
+/// One per Studio (1:1). Presentation only: templateId picks which of the
+/// registered templates renders it, and every piece of actual content this
+/// site needs (name/slug/logo/description/phone from Studio, Albums it
+/// references by id) already lives elsewhere — nothing here duplicates it.
+/// `settings` carries whatever a template needs that isn't a first-class
+/// Studio field yet (headline override, accent color choice, etc.).
+model StudioWebsite {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studioId    String    @unique @db.Uuid
+  templateId  String
+  status      String    @default("draft") // "draft" | "published"
+  publishedAt DateTime?
+  settings    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  studio   Studio           @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  sections WebsiteSection[]
+
+  @@map("studio_websites")
+}
+
+/// One content block on a StudioWebsite (Hero, Portfolio, About, Albums,
+/// Contact, ...) — `type` picks which section component renders,
+/// `orderIndex` controls position, `enabled` lets a Studio turn one off
+/// without losing its settings. `settings` is the section's own content
+/// (headline text, which Album ids it shows, etc.) — free-form per type
+/// rather than a column per possible field, since section shapes vary a lot
+/// across 17 templates and this avoids a very wide, mostly-null table.
+model WebsiteSection {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  websiteId  String   @db.Uuid
+  type       String
+  enabled    Boolean  @default(true)
+  orderIndex Int
+  settings   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  website StudioWebsite @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+
+  @@index([websiteId])
+  @@map("website_sections")
 }
 
 /// A single-use, short-lived "Quên mật khẩu" link. Only tokenHash (never
@@ -129,6 +187,11 @@ model Album {
   /// (e.g. "12.12.2026") — distinct from expiryDate (the selection
   /// deadline). Optional; templates hide the date line when unset.
   eventDate DateTime?
+  /// Whether this Album is shown on the Studio's public Website ("album
+  /// nào demo" — Website Templates_FINAL.md). Off by default: a Studio's
+  /// existing Albums are proofing links for specific clients, not
+  /// automatically public marketing content, so opting one in is explicit.
+  showOnWebsite Boolean @default(false)
   /// Stamped with the current time whenever a Google Drive scan
   /// (drive-import or drive-sync) actually completes successfully — never
   /// touched on failure, so the "Đồng bộ ảnh" button's tooltip always shows
