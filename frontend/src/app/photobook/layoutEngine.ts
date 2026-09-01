@@ -85,16 +85,44 @@ export function buildFlipPages(photos: DemoPhoto[], singleMode: boolean): FlipPa
   }));
 }
 
+/** A physical cover material — a plain CSS approximation of the leather/
+ * fabric swatch board (not a photo), used as "Bìa da" when the Studio
+ * hasn't picked one of their own photos as the cover. */
+export interface MaterialSwatch {
+  id: string;
+  label: string;
+  texture: "leather" | "fabric";
+  swatchCss: string;
+}
+
+const leather = (hi: string, mid: string, lo: string) =>
+  `radial-gradient(circle at 28% 22%, ${hi}, ${mid} 55%, ${lo} 100%)`;
+const fabric = (a: string, b: string) =>
+  `repeating-linear-gradient(45deg, ${a}, ${a} 2px, ${b} 2px, ${b} 4px), repeating-linear-gradient(-45deg, ${a}, ${a} 2px, ${b} 2px, ${b} 4px)`;
+
+export const COVER_MATERIALS: MaterialSwatch[] = [
+  { id: "01", label: "01 · Da nâu", texture: "leather", swatchCss: leather("#a2603a", "#8a4c2c", "#623620") },
+  { id: "02", label: "02 · Da đen", texture: "leather", swatchCss: leather("#3a4442", "#2b332f", "#1c211f") },
+  { id: "03", label: "03 · Da xám", texture: "leather", swatchCss: leather("#b7bac0", "#9a9ea5", "#797d84") },
+  { id: "04", label: "04 · Da be", texture: "leather", swatchCss: leather("#d9bd8f", "#c7a575", "#a4835a") },
+  { id: "05", label: "05 · Vải xám", texture: "fabric", swatchCss: fabric("#767871", "#616359") },
+  { id: "06", label: "06 · Vải đỏ", texture: "fabric", swatchCss: fabric("#8c2634", "#761f2b") },
+  { id: "07", label: "07 · Vải xanh rêu", texture: "fabric", swatchCss: fabric("#5f7d70", "#4c6759") },
+  { id: "08", label: "08 · Vải đỏ đậm", texture: "fabric", swatchCss: fabric("#7a1b2c", "#631523") },
+];
+
+export type CoverSpec = { kind: "photo"; photo: DemoPhoto } | { kind: "material"; material: MaterialSwatch };
+
 export interface AlbumBook {
-  cover: DemoPhoto | null;
+  cover: CoverSpec | null;
   pages: FlipPage[];
 }
 
-/** First upload becomes the Cover (its own thing, unrelated to the
- * Single/Spread rule); everything else becomes body pages tagged by
- * whichever mode was active for this batch. */
-export function buildAlbumBook(photos: DemoPhoto[], singleMode: boolean): AlbumBook {
-  if (photos.length === 0) return { cover: null, pages: [] };
-  const [cover, ...rest] = photos;
-  return { cover, pages: buildFlipPages(rest, singleMode) };
+/** Cover is chosen explicitly now (Bìa hình = one of the Studio's own
+ * photos, Bìa da = a plain material) rather than always defaulting to
+ * the first upload — so if that photo was also picked as cover it's
+ * pulled out of the body queue to avoid showing it twice. */
+export function buildAlbumBook(photos: DemoPhoto[], singleMode: boolean, cover: CoverSpec): AlbumBook {
+  const bodyPhotos = cover.kind === "photo" ? photos.filter((p) => p.id !== cover.photo.id) : photos;
+  return { cover, pages: buildFlipPages(bodyPhotos, singleMode) };
 }

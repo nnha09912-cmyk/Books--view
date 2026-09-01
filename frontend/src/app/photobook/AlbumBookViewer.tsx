@@ -12,11 +12,13 @@ import {
   Pause,
   Images,
   Share2,
-  Download,
+  Copy,
+  Check,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { AlbumBook, FlipPage } from "./layoutEngine";
 import styles from "./album-book.module.css";
@@ -76,18 +78,45 @@ function buildLeaves(pages: FlipPage[]): Leaf[] {
 interface AlbumBookViewerProps {
   book: AlbumBook;
   albumName: string;
+  /** Text shown on the cover itself — separate from albumName (the
+   * toolbar label) since a material cover with no title should render
+   * "trơn" (blank), not fall back to a placeholder string. */
+  coverTitle?: string;
+  /** Lịch sử Album entry id for this book, if it's been saved — the
+   * share link points at this specific album (/photobook/view?id=...)
+   * rather than "whatever was created most recently". */
+  shareId?: string;
   pageWidthPx: number;
   pageHeightPx: number;
   onClose: () => void;
 }
 
-export function AlbumBookViewer({ book, albumName, pageWidthPx, pageHeightPx, onClose }: AlbumBookViewerProps) {
+export function AlbumBookViewer({ book, albumName, coverTitle, shareId, pageWidthPx, pageHeightPx, onClose }: AlbumBookViewerProps) {
   const flipRef = useRef<{ pageFlip: () => PageFlipInstance }>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [showThumbnails, setShowThumbnails] = useState(true);
   const [autoPlay, setAutoPlay] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+
+  useEffect(() => {
+    const path = shareId ? `/photobook/view?id=${shareId}` : "/photobook/view";
+    setShareUrl(`${window.location.origin}${path}`);
+  }, [shareId]);
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast("Đã copy link chia sẻ");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast("Không thể copy tự động, hãy copy thủ công");
+    }
+  }
 
   const leaves = useMemo(() => buildLeaves(book.pages), [book.pages]);
   const totalFlipPages = 2 + leaves.length; // cover + body leaves + back cover
@@ -154,13 +183,9 @@ export function AlbumBookViewer({ book, albumName, pageWidthPx, pageHeightPx, on
             {autoPlay ? <Pause size={15} /> : <Play size={15} />}
             Auto Play
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => toast("Demo — chưa kết nối chia sẻ")}>
+          <Button variant="ghost" size="sm" onClick={() => setShareOpen(true)}>
             <Share2 size={15} />
             Chia sẻ
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => toast("Demo — chưa kết nối tải xuống")}>
-            <Download size={15} />
-            Tải xuống
           </Button>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X size={15} />
@@ -199,12 +224,21 @@ export function AlbumBookViewer({ book, albumName, pageWidthPx, pageHeightPx, on
           onFlip={(e) => setCurrentPage(e.data)}
         >
           <div className={styles.page}>
-            <div className={styles.cover}>
-              {book.cover && <img className={cn(styles.ph, styles.phBleed)} src={book.cover.url} alt="" />}
-              <div className={styles.coverScrim} />
-              <div className={styles.coverText}>
-                <span>{albumName}</span>
-              </div>
+            <div
+              className={styles.cover}
+              style={book.cover?.kind === "material" ? { background: book.cover.material.swatchCss } : undefined}
+            >
+              {book.cover?.kind === "photo" && (
+                <>
+                  <img className={cn(styles.ph, styles.phBleed)} src={book.cover.photo.url} alt="" />
+                  <div className={styles.coverScrim} />
+                </>
+              )}
+              {coverTitle && (
+                <div className={styles.coverText}>
+                  <span>{coverTitle}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -238,7 +272,11 @@ export function AlbumBookViewer({ book, albumName, pageWidthPx, pageHeightPx, on
       {showThumbnails && (
         <div className={styles.thumbs}>
           <button type="button" className={cn(styles.thumb, currentPage === 0 && styles.active)} onClick={() => goToFlipIndex(0)}>
-            {book.cover && <img src={book.cover.url} alt="" />}
+            {book.cover?.kind === "photo" ? (
+              <img src={book.cover.photo.url} alt="" />
+            ) : book.cover?.kind === "material" ? (
+              <div style={{ width: "100%", height: 46, borderRadius: 3, background: book.cover.material.swatchCss }} />
+            ) : null}
             <span>Bìa</span>
           </button>
           {Array.from({ length: Math.ceil(leaves.length / 2) }, (_, i) => {
@@ -268,6 +306,24 @@ export function AlbumBookViewer({ book, albumName, pageWidthPx, pageHeightPx, on
           </button>
         </div>
       )}
+
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent style={{ maxWidth: 460 }}>
+          <DialogHeader>
+            <DialogTitle>Chia sẻ album</DialogTitle>
+          </DialogHeader>
+          <p className="text-secondary text-sm">
+            Gửi link này cho khách để xem album — khách chỉ thấy phần Xem Album, không thấy khu tải ảnh hay tạo album.
+          </p>
+          <div className={styles.shareRow}>
+            <input className="input" readOnly value={shareUrl} onFocus={(e) => e.target.select()} />
+            <Button size="sm" onClick={copyShareLink}>
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? "Đã copy" : "Copy"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
