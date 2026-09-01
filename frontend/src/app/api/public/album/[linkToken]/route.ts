@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { studioDisplayName } from "@/lib/studio-name";
+import { getGuestCustomer } from "@/lib/auth";
+import { clientIp, hashIp } from "@/lib/rate-limit";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { linkToken: string } }
 ) {
   const album = await prisma.album.findUnique({
@@ -33,6 +35,27 @@ export async function GET(
     );
   }
   const downloadExpired = !!(album.downloadExpiryDate && album.downloadExpiryDate < new Date());
+
+  // "Lượt truy cập link" (Dashboard) — one row per successful open of a
+  // valid album link, counted by request, not by unique visitor (see
+  // AlbumViewEvent in schema.prisma). Best-effort: a logging failure must
+  // never break the actual page load a guest is waiting on.
+  try {
+    const guest = await getGuestCustomer(params.linkToken);
+    const ip = clientIp(req);
+    await prisma.albumViewEvent.create({
+      data: {
+        albumId: album.id,
+        customerId: guest?.id ?? null,
+        ipHash: ip !== "unknown" ? hashIp(ip) : null,
+        userAgent: req.headers.get("user-agent"),
+        referrer: req.headers.get("referer"),
+      },
+    });
+  } catch (err) {
+    console.error("Failed to log album view event", err);
+  }
+
   return NextResponse.json({
     name: album.name,
     description: album.description,
@@ -50,5 +73,6 @@ export async function GET(
     // relevant once it's already known to be available.
     downloadEnabled: album.downloadEnabled && !downloadExpired,
     requiresDownloadPassword: !!album.downloadPasswordHash,
+    watermarkConfig: album.watermarkConfig,
   });
 }

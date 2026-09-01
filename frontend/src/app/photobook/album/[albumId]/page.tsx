@@ -2,32 +2,33 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BookOpen } from "lucide-react";
-import { AlbumBookViewer } from "../AlbumBookViewer";
-import { getHistoryEntry, bumpViews, type AlbumHistoryEntry } from "../albumHistory";
+import { AlbumBookViewer } from "../../AlbumBookViewer";
+import { getHistoryEntry, bumpViews, toAlbumBook, type AlbumRecord } from "../../albumHistory";
 
-/** Dedicated client-facing route for the "Chia sẻ" link on /photobook —
- * shows ONLY the Xem Album viewer, never the upload/kiểu-album editor.
- * Reads one specific album (?id=...) from Lịch sử Album in localStorage
- * — localStorage (not sessionStorage) so this works when the link is
- * opened in a *different* tab/window of the same browser, not just the
- * one that created it. A real client opening this on another
+/** Standalone customer album viewer — /photobook/album/{albumId}. Nested
+ * here (not the top-level /album/{id}) because /album/[linkId] already
+ * exists as the real customer-facing Album route elsewhere in the app —
+ * Next.js can't have two different dynamic-segment names at the same
+ * path level, so this had to move to avoid colliding with it. It's
+ * still fully independent of /photobook (the editor): it loads the
+ * album record by albumId from the repository (albumHistory.ts) on
+ * mount, never from /photobook's React state, so the link keeps working
+ * in a new tab, pasted fresh into the address bar, on refresh, or after
+ * /photobook itself is closed. A real client opening this on another
  * device/browser still needs the photos hosted somewhere — this demo
- * has no backend yet. */
-export default function PhotobookViewPage() {
+ * has no backend yet, so the repository is localStorage-backed; see
+ * albumHistory.ts for how that's meant to be swapped for a real API
+ * later without touching this page or AlbumBookViewer. */
+export default function AlbumViewerPage({ params }: { params: { albumId: string } }) {
   const [status, setStatus] = useState<"loading" | "found" | "not-found">("loading");
-  const [entry, setEntry] = useState<AlbumHistoryEntry | null>(null);
+  const [record, setRecord] = useState<AlbumRecord | null>(null);
   const [closed, setClosed] = useState(false);
   // Guards against React StrictMode's dev-only double-invoke firing two
   // views for one real page load.
   const bumpedRef = useRef(false);
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("id");
-    if (!id) {
-      setStatus("not-found");
-      return;
-    }
-    const found = getHistoryEntry(id);
+    const found = getHistoryEntry(params.albumId);
     if (!found) {
       setStatus("not-found");
       return;
@@ -37,11 +38,11 @@ export default function PhotobookViewPage() {
     // it exists in the first place.
     if (!bumpedRef.current) {
       bumpedRef.current = true;
-      bumpViews(id);
+      bumpViews(params.albumId);
     }
-    setEntry(found);
+    setRecord(found);
     setStatus("found");
-  }, []);
+  }, [params.albumId]);
 
   return (
     <div className="max-w-[1200px] mx-auto p-6 flex flex-col gap-6">
@@ -62,14 +63,14 @@ export default function PhotobookViewPage() {
         </div>
       </div>
 
-      {status === "found" && entry && !closed ? (
+      {status === "found" && record && !closed ? (
         <AlbumBookViewer
-          book={entry.book}
-          albumName={entry.name === "Album không tên" ? "Album Demo" : entry.name}
-          coverTitle={entry.name === "Album không tên" ? undefined : entry.name}
-          shareId={entry.id}
-          pageWidthPx={entry.pagePx.w}
-          pageHeightPx={entry.pagePx.h}
+          book={toAlbumBook(record)}
+          albumName={record.title === "Album không tên" ? "Album Demo" : record.title}
+          coverTitle={record.title === "Album không tên" ? undefined : record.title}
+          shareId={record.albumId}
+          pageWidthPx={record.pagePx.w}
+          pageHeightPx={record.pagePx.h}
           onClose={() => setClosed(true)}
         />
       ) : (

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Images, Filter, Settings, LogOut, Globe } from "lucide-react";
+import { LayoutDashboard, Images, Filter, Settings, LogOut, Globe, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { useStudio } from "@/lib/use-studio";
@@ -66,6 +66,16 @@ export function Sidebar() {
             }
           />
         )}
+        {/* Standalone module — its own editor/route, not wired into
+         * Albums/Filter/Wed Studio. Just photo viewing for now; any future
+         * link-up with the rest of the app is a separate, later decision. */}
+        <Link
+          href="/photobook"
+          className={cn("nav-item", pathname.startsWith("/photobook") && "active")}
+        >
+          <BookOpen size={18} />
+          Photobook
+        </Link>
         {navItems.slice(3).map(({ href, label, icon: Icon }) => {
           const active = pathname.startsWith(href);
           return (

@@ -238,13 +238,20 @@ model Album {
   /// touched on failure, so the "Đồng bộ ảnh" button's tooltip always shows
   /// the last time it *worked*, not the last time it was merely attempted.
   lastGoogleSyncAt DateTime?
+  /// Shape matches frontend's WatermarkConfig (lib/watermark-demo.ts) —
+  /// stored as-is rather than broken into columns since it's one cohesive
+  /// unit only ever read/written whole by the Settings tab and the public
+  /// gallery, never queried by individual field. null = never configured
+  /// (equivalent to enabled: false).
+  watermarkConfig Json?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  studio    Studio     @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  folders   Folder[]
-  photos    Photo[]
-  customers Customer[]
+  studio     Studio           @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  folders    Folder[]
+  photos     Photo[]
+  customers  Customer[]
+  viewEvents AlbumViewEvent[]
 
   @@index([studioId])
   @@index([linkToken])
@@ -315,13 +322,49 @@ model Customer {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  album      Album       @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  album      Album            @relation(fields: [albumId], references: [id], onDelete: Cascade)
   selections Selection[]
   comments   Comment[]
+  viewEvents AlbumViewEvent[]
 
   @@unique([albumId, email])
   @@index([albumId])
   @@map("customers")
+}
+
+/// One row per successful "opened this album's link" request — see GET
+/// /api/public/album/[linkToken], the album's own public-info endpoint
+/// (hit by both the landing page and the gallery page on load). Deliberately
+/// request-level, not deduplicated by visitor: opening the same link 3
+/// times is 3 rows, by design — that's what the Dashboard's "Lượt truy cập
+/// link" stat counts (`COUNT(*) WHERE albumId = ...`). Kept generic on
+/// purpose so it can double as the base event log for future
+/// Analytics/Notifications work, not a single-purpose view counter.
+model AlbumViewEvent {
+  id      String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  albumId String @db.Uuid
+  /// Populated only when the visitor already carries a valid guest session
+  /// cookie from a prior identification (see getGuestCustomer) — most views
+  /// happen before that, so this is null far more often than not.
+  customerId String? @db.Uuid
+  /// No generic anonymous-session concept exists elsewhere in this app
+  /// (only identified guests get a token, via Customer.guestToken) — left
+  /// null until there's a real one to reuse, rather than inventing one
+  /// just for this table.
+  sessionId String?
+  /// Hashed, never the raw IP — only kept for abuse detection, not stored
+  /// as identifying data.
+  ipHash    String?
+  userAgent String?
+  referrer  String?
+  createdAt DateTime @default(now())
+
+  album    Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([albumId])
+  @@index([albumId, createdAt])
+  @@map("album_view_events")
 }
 
 model Selection {

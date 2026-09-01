@@ -82,9 +82,10 @@ interface AlbumBookViewerProps {
    * toolbar label) since a material cover with no title should render
    * "trơn" (blank), not fall back to a placeholder string. */
   coverTitle?: string;
-  /** Lịch sử Album entry id for this book, if it's been saved — the
-   * share link points at this specific album (/photobook/view?id=...)
-   * rather than "whatever was created most recently". */
+  /** albumId for this book, if it's been saved — the share link is the
+   * standalone /photobook/album/{albumId} route (its own page, loads
+   * the record directly, not this component's props) rather than
+   * "whatever was created most recently". */
   shareId?: string;
   pageWidthPx: number;
   pageHeightPx: number;
@@ -103,7 +104,7 @@ export function AlbumBookViewer({ book, albumName, coverTitle, shareId, pageWidt
   const [shareUrl, setShareUrl] = useState("");
 
   useEffect(() => {
-    const path = shareId ? `/photobook/view?id=${shareId}` : "/photobook/view";
+    const path = shareId ? `/photobook/album/${shareId}` : "/photobook";
     setShareUrl(`${window.location.origin}${path}`);
   }, [shareId]);
 

@@ -34,6 +34,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { picsum } from "@/lib/mock-data";
 import { api, ApiError } from "@/lib/api-client";
 import { getCarouselState, shortestDistance } from "@/lib/carousel-position";
+import { WatermarkOverlay } from "@/components/watermark-overlay";
 import type { AlbumPhoto, PublicAlbumInfo } from "@/lib/types";
 
 // Custom icon (not in lucide-react) for the 3D Carousel view-switch button —
@@ -1346,6 +1347,7 @@ export default function GalleryPage({
                   height={height}
                   unoptimized
                 />
+                {album?.watermarkConfig?.enabled && <WatermarkOverlay config={album.watermarkConfig} />}
                 {(photo.liked || photo.starred || commentedIds.has(photo.id)) && (
                   <div className="tile-badges">
                     {photo.liked && (

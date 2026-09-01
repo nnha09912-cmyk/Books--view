@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Plus, Globe, ExternalLink, Pencil } from "lucide-react";
+import { Plus, Globe, ExternalLink, Pencil, Heart, Star } from "lucide-react";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { AlbumCard } from "@/components/album-card";
 import { Button } from "@/components/ui/button";
@@ -78,8 +78,9 @@ export default function DashboardPage() {
   if (studioLoading || !studio) return null;
 
   const totalPhotos = albums?.reduce((sum, a) => sum + a.photoCount, 0) ?? 0;
-  const totalCustomers =
-    albums?.reduce((sum, a) => sum + a.customerCount, 0) ?? 0;
+  const totalViews = albums?.reduce((sum, a) => sum + a.viewCount, 0) ?? 0;
+  const totalLikes = albums?.reduce((sum, a) => sum + a.totalLikes, 0) ?? 0;
+  const totalStars = albums?.reduce((sum, a) => sum + a.totalStars, 0) ?? 0;
 
   return (
     <AdminShell>
@@ -109,13 +110,31 @@ export default function DashboardPage() {
           <span className="text-sm">trong {albums?.length ?? 0} album</span>
         </div>
         <div className="stat-card">
-          <span className="text-sm">Khách hàng</span>
-          <div className="num">{totalCustomers}</div>
+          <span className="text-sm">Lượt truy cập link</span>
+          <div className="num">{totalViews.toLocaleString("vi-VN")}</div>
         </div>
         <div className="stat-card">
-          <span className="text-sm">Lượt tim / sao</span>
-          <div className="num">—</div>
-          <span className="text-sm">Xem chi tiết trong từng album</span>
+          <span className="text-sm">Lượt Tim / Sao</span>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              marginTop: 4,
+              fontFamily: '"UTM Centur", var(--font-heading)',
+              fontSize: 20,
+              fontWeight: 700,
+            }}
+          >
+            <span className="flex items-center gap-sm">
+              <Heart size={16} fill="currentColor" />
+              {totalLikes.toLocaleString("vi-VN")}
+            </span>
+            <span className="flex items-center gap-sm">
+              <Star size={16} fill="currentColor" />
+              {totalStars.toLocaleString("vi-VN")}
+            </span>
+          </div>
         </div>
       </div>
 

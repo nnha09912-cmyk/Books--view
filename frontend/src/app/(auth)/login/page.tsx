@@ -45,6 +45,8 @@ export default function LoginPage() {
     <AuthShell
       imageSeed="booksview-wedding"
       quoteTitle="“Khách xem và chọn ảnh chỉ trong 10 phút, không cần cài app.”"
+      quoteSubtitle="Mỗi bức ảnh là một kỷ niệm. Mỗi thông tin khách hàng là một sự tin tưởng."
+      quoteSignature="Duy Chụp Hình | Gò Công | Tiền Giang"
       quoteMeta="♥ Một quà tặng từ Trần Nhất Duy - Phóng Sự Cưới Gò Công"
     >
       <div className="brand">

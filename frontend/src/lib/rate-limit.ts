@@ -10,6 +10,8 @@
  * of it, not a replacement — cheap to add now, upgradeable to a shared
  * store (Redis/Upstash) later without changing the call sites.
  */
+import { createHash } from "crypto";
+
 const hits = new Map<string, { count: number; resetAt: number }>();
 
 export function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
@@ -28,4 +30,10 @@ export function clientIp(req: Request): string {
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0].trim();
   return req.headers.get("x-real-ip") ?? "unknown";
+}
+
+/** Never store a raw IP for view-event logging — this is only kept around
+ * for abuse detection, not as identifying data. */
+export function hashIp(ip: string): string {
+  return createHash("sha256").update(ip).digest("hex");
 }

@@ -4,6 +4,13 @@ import { picsum } from "@/lib/mock-data";
 interface AuthShellProps {
   imageSeed: string;
   quoteTitle: string;
+  /** Second line under the quote — a supporting sentence, not the
+   * attribution (that's quoteMeta). Optional: most auth pages only need
+   * the one quote line. */
+  quoteSubtitle?: string;
+  /** Studio's own byline (name | location) — sits between quoteSubtitle
+   * and quoteMeta, distinct from quoteMeta's "gift from" dedication. */
+  quoteSignature?: string;
   quoteMeta?: string;
   children: React.ReactNode;
 }
@@ -11,6 +18,8 @@ interface AuthShellProps {
 export function AuthShell({
   imageSeed,
   quoteTitle,
+  quoteSubtitle,
+  quoteSignature,
   quoteMeta,
   children,
 }: AuthShellProps) {
@@ -26,6 +35,26 @@ export function AuthShell({
         />
         <div className="quote">
           <h2>{quoteTitle}</h2>
+          {quoteSubtitle && (
+            <p
+              className="text-sm"
+              style={{ color: "rgba(255,255,255,.85)", marginTop: 14 }}
+            >
+              {quoteSubtitle}
+            </p>
+          )}
+          {quoteSignature && (
+            <p
+              className="text-sm"
+              style={{
+                color: "rgba(255,255,255,.85)",
+                fontWeight: 600,
+                marginTop: quoteSubtitle ? 16 : 10,
+              }}
+            >
+              {quoteSignature}
+            </p>
+          )}
           {quoteMeta && (
             <p
               className="text-sm"

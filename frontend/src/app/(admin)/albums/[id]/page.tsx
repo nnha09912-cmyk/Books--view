@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -11,12 +17,17 @@ import {
   RefreshCw,
   AlertTriangle,
   HardDrive,
+  Type as TypeIcon,
+  Image as ImageGlyph,
+  UploadCloud,
+  Grip,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +44,8 @@ import { useStudio } from "@/lib/use-studio";
 import { api, ApiError } from "@/lib/api-client";
 import { isFileSystemAccessSupported, buildSourceIndex } from "@/lib/fs-filter";
 import { ALBUM_TEMPLATES } from "@/lib/album-templates";
+import type { WatermarkConfig } from "@/lib/watermark-demo";
+import { WatermarkOverlay } from "@/components/watermark-overlay";
 import type { AlbumDetail, AlbumPhoto } from "@/lib/types";
 
 /** "Cập nhật DD/MM/YY HH:mm" for the "Đồng bộ ảnh" button's hover tooltip —
@@ -743,6 +756,7 @@ function SettingsTab({
     album.downloadExpiryDate ? album.downloadExpiryDate.slice(0, 10) : ""
   );
   const [saving, setSaving] = useState(false);
+  const watermarkRef = useRef<WatermarkPanelHandle>(null);
 
   async function handleSave() {
     if (passwordEnabled && !album.passwordProtected && !passwordValue.trim()) {
@@ -778,11 +792,15 @@ function SettingsTab({
       } else if (!downloadPasswordEnabled && album.downloadPasswordProtected) {
         body.downloadPassword = null;
       }
+      if (watermarkRef.current) {
+        body.watermarkConfig = watermarkRef.current.getConfig();
+      }
       const res = await api<{
         passwordProtected: boolean;
         downloadEnabled: boolean;
         downloadPasswordProtected: boolean;
         downloadExpiryDate: string | null;
+        watermarkConfig: WatermarkConfig | null;
       }>(`/api/albums/${album.id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
@@ -797,6 +815,7 @@ function SettingsTab({
         downloadEnabled: res.downloadEnabled,
         downloadPasswordProtected: res.downloadPasswordProtected,
         downloadExpiryDate: res.downloadExpiryDate,
+        watermarkConfig: res.watermarkConfig,
       });
       setPasswordValue("");
       setDownloadPasswordValue("");
@@ -809,7 +828,8 @@ function SettingsTab({
   }
 
   return (
-    <div className="card" style={{ maxWidth: 560 }}>
+    <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
+    <div className="card" style={{ maxWidth: 560, flex: "1 1 480px" }}>
       <div
         className="card-body lg"
         style={{ display: "flex", flexDirection: "column", gap: 16 }}
@@ -997,8 +1017,295 @@ function SettingsTab({
         </div>
       </div>
     </div>
+    <WatermarkPanel ref={watermarkRef} initialConfig={album.watermarkConfig} />
+    </div>
   );
 }
+
+function watermarkPillStyle(active: boolean): React.CSSProperties {
+  return {
+    flex: 1,
+    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    borderRadius: "var(--radius-md)",
+    padding: "8px 12px",
+    cursor: "pointer",
+    background: active ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "transparent",
+  };
+}
+
+export interface WatermarkPanelHandle {
+  getConfig: () => WatermarkConfig;
+}
+
+/** Real, persisted feature — `Album.watermarkConfig` (Json column, see
+ * schema.prisma) round-trips through PATCH /api/albums/:id. Saved together
+ * with the rest of the form under the one shared "Lưu thay đổi" button (via
+ * `getConfig()` exposed on this ref, read by the parent's handleSave) —
+ * no separate save button here. The public gallery reads the same field
+ * back from GET /api/public/album/:linkToken and renders it with the same
+ * `WatermarkOverlay`, so it now shows for any guest, not just the studio's
+ * own browser. There's still no photo-processing pipeline to burn this
+ * into a downloaded/exported file — it's a view-time overlay, which is
+ * exactly what it's for: a deterrent against screenshotting a photo a
+ * guest isn't allowed to download, not a way to mark files that leave the
+ * app some other way. */
+const WatermarkPanel = forwardRef<WatermarkPanelHandle, { initialConfig: WatermarkConfig | null }>(
+  function WatermarkPanel({ initialConfig }, ref) {
+    const [enabled, setEnabled] = useState(initialConfig?.enabled ?? false);
+    const [wmType, setWmType] = useState<"text" | "image">(initialConfig?.type ?? "text");
+    const [wmText, setWmText] = useState(initialConfig?.text ?? "Guikhach.com");
+    const [wmImageUrl, setWmImageUrl] = useState<string | null>(initialConfig?.imageDataUrl ?? null);
+    const [wmImageName, setWmImageName] = useState<string | null>(
+      initialConfig?.imageDataUrl ? "Ảnh đã lưu" : null
+    );
+    // Position offset from center — must default to 0/0 and only move when
+    // the studio deliberately drags a slider, never on its own.
+    const [posX, setPosX] = useState([initialConfig?.posX ?? 0]);
+    const [posY, setPosY] = useState([initialConfig?.posY ?? 0]);
+    const [opacity, setOpacity] = useState([initialConfig?.opacity ?? 70]);
+    const [fontSize, setFontSize] = useState([initialConfig?.fontSize ?? 15]);
+    const [textColor, setTextColor] = useState(initialConfig?.textColor ?? "#ffffff");
+    // 0 = a single logo/text, no repeat. Must default to 0 — never
+    // auto-increase, otherwise someone who never touched this slider would
+    // still get a tiled watermark they didn't ask for.
+    const [repeatLevel, setRepeatLevel] = useState([initialConfig?.repeatLevel ?? 0]);
+    const [gripMode, setGripMode] = useState<WatermarkConfig["gripMode"]>(
+      initialConfig?.gripMode ?? "grid"
+    );
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const config: WatermarkConfig = {
+      enabled,
+      type: wmType,
+      text: wmText,
+      imageDataUrl: wmImageUrl,
+      posX: posX[0],
+      posY: posY[0],
+      repeatLevel: repeatLevel[0],
+      gripMode,
+      opacity: opacity[0],
+      fontSize: fontSize[0],
+      textColor,
+    };
+
+    useImperativeHandle(ref, () => ({ getConfig: () => config }));
+
+    function handlePngSelected(e: React.ChangeEvent<HTMLInputElement>) {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setWmImageName(file.name);
+      // data: URL, not a blob: one — this needs to survive being written to
+      // localStorage and read back from an entirely different page (the
+      // public gallery route), which a blob: URL can't do.
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") setWmImageUrl(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    const repeating = repeatLevel[0] > 0;
+
+    return (
+      <div className="card" style={{ flex: "1 1 360px", maxWidth: 420 }}>
+        <div className="card-body lg" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="flex justify-between items-center">
+            <div>
+              <p style={{ fontWeight: 600, fontSize: 13 }}>Watermark</p>
+              <span className="text-sm">
+                Bật: watermark hiển thị đè lên thumbnail cho mọi khách xem Gallery — hữu ích khi
+                khách không được phép tải ảnh, để hạn chế việc chụp màn hình thay thế. Chỉ áp dụng
+                lúc xem, chưa đóng vào file ảnh gốc/tải xuống.
+              </span>
+            </div>
+            <Switch checked={enabled} onCheckedChange={(checked) => setEnabled(checked === true)} />
+          </div>
+
+          {enabled && (
+            <>
+              <div style={{ display: "flex", gap: 8 }}>
+                <label className="flex items-center gap-sm text-sm" style={watermarkPillStyle(wmType === "text")}>
+                  <input
+                    type="radio"
+                    name="wmType"
+                    checked={wmType === "text"}
+                    onChange={() => setWmType("text")}
+                  />
+                  <TypeIcon size={14} />
+                  Chữ
+                </label>
+                <label className="flex items-center gap-sm text-sm" style={watermarkPillStyle(wmType === "image")}>
+                  <input
+                    type="radio"
+                    name="wmType"
+                    checked={wmType === "image"}
+                    onChange={() => setWmType("image")}
+                  />
+                  <ImageGlyph size={14} />
+                  Hình PNG
+                </label>
+              </div>
+
+              {wmType === "text" ? (
+                <>
+                  <div className="field">
+                    <label>Nội dung</label>
+                    <input
+                      className="input"
+                      value={wmText}
+                      onChange={(e) => setWmText(e.target.value)}
+                      placeholder="© Guikhach.com"
+                    />
+                  </div>
+                  <div className="field">
+                    <div className="flex justify-between items-center">
+                      <label>Kích thước chữ</label>
+                      <span className="text-sm">{fontSize[0]}px</span>
+                    </div>
+                    <div className="flex items-center gap-sm">
+                      <Slider value={fontSize} onValueChange={setFontSize} min={10} max={40} step={1} />
+                      <input
+                        type="color"
+                        value={textColor}
+                        onChange={(e) => setTextColor(e.target.value)}
+                        title="Màu chữ"
+                        style={{
+                          width: 32,
+                          height: 32,
+                          flexShrink: 0,
+                          padding: 0,
+                          border: "1px solid var(--border)",
+                          borderRadius: "var(--radius-md)",
+                          cursor: "pointer",
+                          background: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="field">
+                  <label>File PNG</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png"
+                    hidden
+                    onChange={handlePngSelected}
+                  />
+                  <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                    <UploadCloud size={14} />
+                    {wmImageName ?? "Chọn ảnh PNG"}
+                  </Button>
+                </div>
+              )}
+
+              <div className="field">
+                <div className="flex justify-between items-center">
+                  <label>Trục X</label>
+                  <span className="text-sm">{posX[0] > 0 ? `+${posX[0]}%` : `${posX[0]}%`}</span>
+                </div>
+                {/* % of the container, not px — see WatermarkOverlay's
+                    comment: ±50 reaches the left/right edge on both the
+                    small demo box and a real (much larger) thumbnail. */}
+                <div onDoubleClick={() => setPosX([0])} title="Double-click để về vị trí mặc định">
+                  <Slider value={posX} onValueChange={setPosX} min={-50} max={50} step={2} />
+                </div>
+              </div>
+
+              <div className="field">
+                <div className="flex justify-between items-center">
+                  <label>Trục Y</label>
+                  <span className="text-sm">{posY[0] > 0 ? `+${posY[0]}%` : `${posY[0]}%`}</span>
+                </div>
+                <div onDoubleClick={() => setPosY([0])} title="Double-click để về vị trí mặc định">
+                  <Slider value={posY} onValueChange={setPosY} min={-50} max={50} step={2} />
+                </div>
+              </div>
+
+              <div className="field">
+                <div className="flex justify-between items-center">
+                  <label>Opacity</label>
+                  <span className="text-sm">{opacity[0]}%</span>
+                </div>
+                <Slider value={opacity} onValueChange={setOpacity} min={10} max={100} step={5} />
+              </div>
+
+              <div className="field">
+                <div className="flex justify-between items-center">
+                  <label>Mức độ lặp</label>
+                  <span className="text-sm">
+                    {repeatLevel[0] === 0 ? "Không lặp" : `${repeatLevel[0]}%`}
+                  </span>
+                </div>
+                {/* 0-100 with step 1 — a wide, finely-stepped range so
+                    dragging feels continuous, not notched; the actual
+                    tile-size math (watermarkTileSize) is what keeps
+                    density from ever crowding repeats onto each other's
+                    text, not the slider's own granularity. */}
+                <Slider value={repeatLevel} onValueChange={setRepeatLevel} min={0} max={100} step={1} />
+              </div>
+
+              {repeating && (
+                <div className="field">
+                  <label>Kiểu lặp</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setGripMode("grid")}
+                      className="flex items-center gap-sm text-sm"
+                      style={watermarkPillStyle(gripMode === "grid")}
+                    >
+                      <Grip size={14} />
+                      Theo lưới
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGripMode("diagonal")}
+                      className="flex items-center gap-sm text-sm"
+                      style={watermarkPillStyle(gripMode === "diagonal")}
+                    >
+                      <Grip size={14} style={{ transform: "rotate(45deg)" }} />
+                      45 độ
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="field">
+                <label>Khung ảnh demo</label>
+                <div
+                  style={{
+                    position: "relative",
+                    height: 200,
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border)",
+                    background: "var(--muted)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--muted-foreground)",
+                    }}
+                  >
+                    <ImageGlyph size={28} />
+                  </div>
+                  <WatermarkOverlay config={config} />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+);
 
 function RotateLinkDialog({
   albumId,

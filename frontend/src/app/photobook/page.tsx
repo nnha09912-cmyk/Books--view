@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, UploadCloud, X, Image as ImageIcon, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { AdminShell } from "@/components/layout/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ import {
   loadHistory,
   addHistoryEntry,
   removeHistoryEntry,
+  toAlbumBook,
   formatCreatedAt,
   formatExpiry,
 } from "./albumHistory";
@@ -85,7 +87,7 @@ async function loadImageDims(file: File): Promise<DemoPhoto> {
 }
 
 /** Downscales further (1000px / q0.75) purely for the localStorage
- * snapshot stashed for /photobook/view — see drawScaled's comment. */
+ * record read by /photobook/album/[albumId] — see drawScaled's comment. */
 function blobUrlToDataUrl(blobUrl: string): Promise<string> {
   return drawScaled(blobUrl, 1000, 0.75).then(({ url }) =>
     fetch(url)
@@ -117,7 +119,8 @@ async function toPersistableBook(book: AlbumBook): Promise<AlbumBook> {
  * touching Gallery, Photo Proofing, Selection Manager, Filter & Copy, or
  * the 3D Carousel, per the spec's own module-boundary rule. This page is
  * always the full editor; the "Chia sẻ" link points clients to the
- * dedicated /photobook/view route instead of hiding panels here. */
+ * dedicated /photobook/album/[albumId] route instead of hiding panels
+ * here. */
 export default function PhotobookPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<DemoPhoto[]>([]);
@@ -243,16 +246,22 @@ export default function PhotobookPage() {
     setActiveName(photobookName);
     setViewerOpen(true);
 
-    // Best-effort: stash a shareable, compressed snapshot into Lịch sử
-    // Album so /photobook/view?id=... opened in this same browser (e.g.
-    // a different tab, or pasted fresh in the address bar) can
-    // rehydrate it. A real client on another device still needs the
-    // photos hosted somewhere — this is a client-only demo.
+    // Persist immediately: create a unique albumId, save the complete
+    // album record, and that becomes /album/{albumId} — the standalone
+    // route reads this record directly, not this page's React state,
+    // so the link keeps working in a new tab, pasted fresh, refreshed,
+    // or after /photobook itself is closed.
     toPersistableBook(built)
       .then((snap) => {
-        const { list, entry, saved } = addHistoryEntry(snap, px, photobookName);
+        const { list, entry, saved } = addHistoryEntry(
+          snap,
+          px,
+          photobookName,
+          orientation ?? "portrait",
+          mode ? "single" : "spread"
+        );
         setHistory(list);
-        setActiveEntryId(entry.id);
+        setActiveEntryId(entry.albumId);
         if (!saved) toast("Album quá lớn để tạo link chia sẻ — thử bớt ảnh rồi tạo lại");
       })
       .catch(() => toast("Không thể chuẩn bị link chia sẻ cho album này"));
@@ -265,10 +274,10 @@ export default function PhotobookPage() {
   /** Reopen an already-created album from Lịch sử Album — a client not
    * having viewed it yet is not a reason to build it again. */
   function openHistoryEntry(entry: AlbumHistoryEntry) {
-    setBook(entry.book);
+    setBook(toAlbumBook(entry));
     setPagePx(entry.pagePx);
-    setActiveName(entry.name === "Album không tên" ? "" : entry.name);
-    setActiveEntryId(entry.id);
+    setActiveName(entry.title === "Album không tên" ? "" : entry.title);
+    setActiveEntryId(entry.albumId);
     setViewerOpen(true);
   }
 
@@ -302,6 +311,7 @@ export default function PhotobookPage() {
   const overflowCount = photos.length - visibleThumbs.length;
 
   return (
+    <AdminShell>
     <div className="max-w-[1200px] mx-auto p-6 flex flex-col gap-6">
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center rounded-md" style={{ width: 40, height: 40, background: "var(--accent)", color: "var(--accent-foreground)" }}>
@@ -534,22 +544,22 @@ export default function PhotobookPage() {
               ) : (
                 <div className={styles.historyList}>
                   {history.map((entry) => (
-                    <div key={entry.id} className={styles.historyItem}>
+                    <div key={entry.albumId} className={styles.historyItem}>
                       <button
                         type="button"
                         className={styles.historyItemMain}
                         onClick={() => openHistoryEntry(entry)}
                       >
-                        {entry.book.cover?.kind === "photo" ? (
-                          <img className={styles.historyThumb} src={entry.book.cover.photo.url} alt="" />
+                        {entry.cover?.kind === "photo" ? (
+                          <img className={styles.historyThumb} src={entry.cover.photo.url} alt="" />
                         ) : (
                           <div
                             className={styles.historyThumb}
-                            style={{ background: entry.book.cover?.kind === "material" ? entry.book.cover.material.swatchCss : undefined }}
+                            style={{ background: entry.cover?.kind === "material" ? entry.cover.material.swatchCss : undefined }}
                           />
                         )}
                         <span className={styles.historyMeta}>
-                          <span className={styles.historyName}>{entry.name}</span>
+                          <span className={styles.historyName}>{entry.title}</span>
                           <span className={styles.historySub}>
                             {formatCreatedAt(entry.createdAt)} · {formatExpiry(entry.expiresAt)}
                           </span>
@@ -562,7 +572,7 @@ export default function PhotobookPage() {
                         type="button"
                         className={styles.historyDeleteBtn}
                         aria-label="Xoá album"
-                        onClick={() => setPendingDeleteId(entry.id)}
+                        onClick={() => setPendingDeleteId(entry.albumId)}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -648,5 +658,6 @@ export default function PhotobookPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </AdminShell>
   );
 }

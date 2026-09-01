@@ -1,3 +1,5 @@
+import type { WatermarkConfig } from "@/lib/watermark-demo";
+
 export interface AlbumSummary {
   id: string;
   name: string;
@@ -5,6 +7,11 @@ export interface AlbumSummary {
   template: string;
   photoCount: number;
   customerCount: number;
+  /** Count of AlbumViewEvent rows — one per successful open of a valid
+   * album link (request-level, not deduplicated by visitor). */
+  viewCount: number;
+  totalLikes: number;
+  totalStars: number;
   status: string;
   linkToken: string;
   createdAt: string;
@@ -50,6 +57,7 @@ export interface PublicAlbumInfo {
   coverPhotoUrl: string | null;
   coverPosY: number;
   eventDate: string | null;
+  watermarkConfig: WatermarkConfig | null;
 }
 
 export interface PublicWebsiteInfo {
@@ -116,6 +124,7 @@ export interface AlbumDetail {
   downloadEnabled: boolean;
   downloadPasswordProtected: boolean;
   downloadExpiryDate: string | null;
+  watermarkConfig: WatermarkConfig | null;
   photos: AlbumPhoto[];
   customers: AlbumCustomer[];
 }

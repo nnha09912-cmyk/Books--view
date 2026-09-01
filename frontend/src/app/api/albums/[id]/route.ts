@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentStudio, hashPassword } from "@/lib/auth";
@@ -50,6 +51,7 @@ export async function GET(
     downloadEnabled: album.downloadEnabled,
     downloadPasswordProtected: !!album.downloadPasswordHash,
     downloadExpiryDate: album.downloadExpiryDate,
+    watermarkConfig: album.watermarkConfig,
     photos: album.photos.map((p) => ({
       id: p.id,
       filename: p.filename,
@@ -75,6 +77,25 @@ export async function GET(
   });
 }
 
+/** Matches the frontend's WatermarkConfig (lib/watermark-demo.ts) — kept in
+ * lockstep by hand since this route has no import path to a "use client"
+ * module. null clears it (equivalent to enabled: false). */
+const watermarkConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    type: z.enum(["text", "image"]),
+    text: z.string(),
+    imageDataUrl: z.string().nullable(),
+    posX: z.number(),
+    posY: z.number(),
+    repeatLevel: z.number(),
+    gripMode: z.enum(["grid", "diagonal"]),
+    opacity: z.number(),
+    fontSize: z.number(),
+    textColor: z.string(),
+  })
+  .nullable();
+
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -93,6 +114,7 @@ const patchSchema = z.object({
   /** Forces every guest currently identified for this album to re-identify
    * — independent of changing the password. */
   revokeGuestSessions: z.boolean().optional(),
+  watermarkConfig: watermarkConfigSchema.optional(),
 });
 
 export async function PATCH(
@@ -122,6 +144,7 @@ export async function PATCH(
     downloadExpiryDate,
     downloadPassword,
     revokeGuestSessions,
+    watermarkConfig,
     ...rest
   } = parsed.data;
   // Changing the Primary Password fundamentally changes who should still
@@ -148,6 +171,9 @@ export async function PATCH(
       ...(downloadPassword !== undefined
         ? { downloadPasswordHash: downloadPassword ? await hashPassword(downloadPassword) : null }
         : {}),
+      ...(watermarkConfig !== undefined
+        ? { watermarkConfig: watermarkConfig === null ? Prisma.DbNull : watermarkConfig }
+        : {}),
       ...(bumpGuestSessions ? { guestSessionVersion: { increment: 1 } } : {}),
     },
   });
@@ -159,6 +185,7 @@ export async function PATCH(
     downloadEnabled: album.downloadEnabled,
     downloadPasswordProtected: !!album.downloadPasswordHash,
     downloadExpiryDate: album.downloadExpiryDate,
+    watermarkConfig: album.watermarkConfig,
     guestSessionVersion: album.guestSessionVersion,
   });
 }
