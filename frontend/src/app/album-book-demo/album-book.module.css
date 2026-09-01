@@ -1,0 +1,386 @@
+/* Album Book demo — CSS Modules so nothing here can leak into (or be
+ * overridden by) any other route. Colors/fonts/radius all come from the
+ * guikhach.com design tokens in globals.css (var(--accent), var(--card),
+ * var(--font-heading)...) — only the flip-stage backdrop is a literal
+ * dark neutral, matching the warm-dark treatment already used by the
+ * site's own dark website templates (DarkCinematic, Event) so photos get
+ * a flattering backdrop without inventing a new brand color. */
+
+.page1 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-md);
+}
+
+.dropzone {
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-2xl) var(--sp-lg);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted-foreground);
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.dropzone.dragOver {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.dropzoneIcon {
+  color: var(--accent);
+}
+
+.modeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.singleToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.singleToggle input {
+  accent-color: var(--accent);
+}
+.modeHint {
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+.modeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  width: fit-content;
+}
+
+.thumbStrip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-top: 4px;
+}
+.thumbStrip img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.thumbMore {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.orientationRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.orientationOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.orientationOption.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.sizeGrid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sizeOption {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  min-width: 84px;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.sizeOption.selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.dimsPreview {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-lg);
+  padding: var(--sp-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+}
+.dimsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dimsLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+}
+.dimsValue {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-foreground, var(--foreground));
+}
+.dimsArrow {
+  color: var(--muted-foreground);
+}
+
+/* ---------- Viewer ---------- */
+.viewer {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--background);
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-md);
+  padding: 14px var(--sp-lg);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.toolbarTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.toolbarTitle strong {
+  font-family: var(--font-heading);
+  font-size: 17px;
+}
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 28px 12px;
+  background: #141310;
+}
+.arrow {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f2ede0;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s var(--ease);
+}
+.arrow:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.flipbook :global(.page) {
+  background: #fff;
+}
+
+.page {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.phBleed {
+  width: 100%;
+  height: 100%;
+}
+/* Single-page mode: whole file, whole page — object-fit: contain so the
+ * photo's own aspect ratio is preserved exactly (no crop, no stretch),
+ * letterboxed on the matte if the Page's aspect ratio doesn't match. */
+.phContain {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.mat {
+  width: 100%;
+  height: 100%;
+  padding: 8%;
+  box-sizing: border-box;
+  background: #fbfaf7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mat .ph,
+.mat .phContain {
+  border: 1px solid var(--border);
+}
+
+/* Spread-page mode: the SAME untouched source image is drawn on both
+ * leaves at double width, each leaf positioned to its own half — the
+ * standard technique every flipbook viewer uses for a pre-designed
+ * two-page scan. The file itself is never split, cropped, or re-encoded. */
+.spreadHalf {
+  width: 100%;
+  height: 100%;
+  background-color: #fbfaf7;
+  background-repeat: no-repeat;
+  background-size: 200% auto;
+  background-position: center;
+}
+.spreadLeft {
+  background-position: left center;
+}
+.spreadRight {
+  background-position: right center;
+}
+
+.cover {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #1a1712;
+  display: flex;
+  align-items: flex-end;
+}
+.backcover {
+  align-items: center;
+  justify-content: center;
+}
+.coverScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10, 8, 5, 0.1) 40%, rgba(10, 8, 5, 0.75) 100%);
+}
+.coverText {
+  position: relative;
+  z-index: 1;
+  padding: 24px;
+  color: #f2ede0;
+  font-family: var(--font-heading);
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.backcover .coverText {
+  padding: 0;
+  font-size: 16px;
+}
+
+.pagenum {
+  text-align: center;
+  padding: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  background: #141310;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.thumbs {
+  display: flex;
+  gap: 8px;
+  padding: 12px var(--sp-lg);
+  overflow-x: auto;
+  border-top: 1px solid var(--border);
+  background: var(--muted);
+}
+.thumb {
+  flex-shrink: 0;
+  width: 68px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  cursor: pointer;
+  background: transparent;
+}
+.thumb img {
+  width: 100%;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--border);
+}
+.thumb span {
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.thumb.active {
+  border-color: var(--accent);
+}
+.thumb.active span {
+  color: var(--accent);
+  font-weight: 600;
+}
