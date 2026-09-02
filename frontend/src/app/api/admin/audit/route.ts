@@ -24,19 +24,24 @@ export async function GET() {
       action: true,
       resourceType: true,
       resourceId: true,
+      metadata: true,
       createdAt: true,
       actor: { select: { name: true, email: true } },
     },
   });
 
   return NextResponse.json({
-    data: rows.map((r) => ({
-      id: r.id,
-      time: r.createdAt,
-      actor: r.actor.name,
-      actorEmail: r.actor.email,
-      action: r.action,
-      resource: `${r.resourceType} #${r.resourceId.slice(0, 8)}`,
-    })),
+    data: rows.map((r) => {
+      const meta = r.metadata as { from?: string; to?: string } | null;
+      const transition = meta?.from && meta?.to ? ` (${meta.from} → ${meta.to})` : "";
+      return {
+        id: r.id,
+        time: r.createdAt,
+        actor: r.actor.name,
+        actorEmail: r.actor.email,
+        action: r.action,
+        resource: `${r.resourceType} #${r.resourceId.slice(0, 8)}${transition}`,
+      };
+    }),
   });
 }

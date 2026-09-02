@@ -5,8 +5,10 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { OwnerShell } from "@/components/system-owner/owner-shell";
 import { StatusPill } from "@/components/system-owner/status-pill";
+import { PlanBadge } from "@/components/system-owner/plan-badge";
 import { useSystemOwner } from "@/lib/use-system-owner";
 import { api } from "@/lib/api-client";
+import type { Plan } from "@/lib/entitlements";
 
 interface OwnerUserRow {
   id: string;
@@ -15,6 +17,7 @@ interface OwnerUserRow {
   albumCount: number;
   lastLoginAt: string | null;
   status: "Active" | "Suspended";
+  plan: Plan;
 }
 
 export default function SystemOwnerUsersPage() {
@@ -63,6 +66,7 @@ export default function SystemOwnerUsersPage() {
               <tr className="bg-muted text-muted-foreground">
                 <th className="text-left font-medium px-4 py-3">Tên</th>
                 <th className="text-left font-medium px-4 py-3">Email</th>
+                <th className="text-left font-medium px-4 py-3">Gói</th>
                 <th className="text-left font-medium px-4 py-3">Album</th>
                 <th className="text-left font-medium px-4 py-3">Đăng nhập cuối</th>
                 <th className="text-left font-medium px-4 py-3">Trạng thái</th>
@@ -71,13 +75,13 @@ export default function SystemOwnerUsersPage() {
             <tbody>
               {users === null ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     Đang tải...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     Không tìm thấy kết quả phù hợp.
                   </td>
                 </tr>
@@ -94,6 +98,9 @@ export default function SystemOwnerUsersPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
+                    <td className="px-4 py-3">
+                      <PlanBadge plan={u.plan} />
+                    </td>
                     <td className="px-4 py-3">{u.albumCount}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("vi-VN") : "—"}

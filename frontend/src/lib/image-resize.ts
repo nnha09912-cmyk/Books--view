@@ -154,6 +154,36 @@ export async function resizeForDownload(bytes: Buffer): Promise<Buffer> {
   }
 }
 
+/** Same 2048px/72dpi output as resizeForDownload, reused for Photobook
+ * uploads — the studio only needs to visualize page layout/flow before
+ * printing, not work with the full camera original, so this deliberately
+ * downsizes rather than storing it at full resolution. Distinct export
+ * (not resizeForDownload itself) so it can return width/height like
+ * resizeForWeb does, without changing resizeForDownload's existing
+ * Buffer-only contract for its one other caller (photo-download.ts). */
+export async function resizeForPhotobook(bytes: Buffer): Promise<ResizedImage> {
+  const image = await decodeImage(bytes, MAX_UPLOAD_FILE_BYTES);
+  try {
+    const { data, info } = await image
+      .rotate()
+      .resize({
+        width: DOWNLOAD_MAX_EDGE,
+        height: DOWNLOAD_MAX_EDGE,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: DOWNLOAD_JPEG_QUALITY, mozjpeg: true })
+      .toBuffer({ resolveWithObject: true });
+    const stamped = await sharp(data)
+      .withMetadata({ density: DOWNLOAD_DPI })
+      .jpeg({ quality: DOWNLOAD_JPEG_QUALITY, mozjpeg: true })
+      .toBuffer();
+    return { buffer: stamped, width: info.width, height: info.height };
+  } catch {
+    throw new InvalidImageError("File không phải ảnh hợp lệ.");
+  }
+}
+
 /** Fixed size tiers the guest-facing image proxy resizes down to on request
  * (`?w=`) — a small, bounded set (not an arbitrary pixel value) keeps the
  * proxy's in-memory resize cache from growing one entry per slightly-

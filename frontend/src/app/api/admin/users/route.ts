@@ -28,6 +28,7 @@ export async function GET() {
       isActive: true,
       lastLoginAt: true,
       createdAt: true,
+      plan: true,
       _count: { select: { albums: true } },
     },
   });
@@ -41,6 +42,7 @@ export async function GET() {
       lastLoginAt: u.lastLoginAt,
       createdAt: u.createdAt,
       status: u.isActive ? "Active" : "Suspended",
+      plan: u.plan,
     })),
   });
 }

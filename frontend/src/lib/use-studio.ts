@@ -14,6 +14,7 @@ export interface CurrentStudio {
   description: string | null;
   logoUrl: string | null;
   role: string;
+  plan: string;
 }
 
 /** Mirrors useSystemOwner()'s redirect the other way: an ADMIN-role

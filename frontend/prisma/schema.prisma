@@ -48,6 +48,12 @@ model Studio {
   /// flipped by a direct database update, never through any API — see
   /// the System Owner area's own design notes.
   role             String   @default("USER")
+  /// Billing plan — "FREE" | "PRO" | "VIP" | "CLOUD" (see lib/entitlements.ts,
+  /// the single source of truth for what each plan unlocks). Every existing
+  /// and new Studio defaults to FREE; System Owner upgrades a Studio
+  /// manually after confirming payment (no payment gateway yet — see
+  /// md new/SYSTEM_OWNER_Plan_Permissions... and GUIKHACH_PLAN_PRICING...).
+  plan             String   @default("FREE")
   lastLoginAt      DateTime?
   /// Brute-force lockout — tracked in the DB (not in-memory) so it stays
   /// correct across serverless instances on Vercel, unlike a process-local
@@ -68,6 +74,7 @@ model Studio {
   passwordResetTokens  PasswordResetToken[]
   studioWebsite        StudioWebsite?
   websitePricingPlans  WebsitePricingPlan[]
+  photobooks           Photobook[]
 
   @@map("studios")
 }
@@ -184,6 +191,10 @@ model AdminAccessLog {
   action        String
   resourceType  String
   resourceId    String
+  /// Small structured detail for actions where "an admin viewed X" isn't
+  /// enough context — e.g. PLAN_CHANGED's {from, to}. Optional; most
+  /// existing actions (VIEW_USER, VIEW_ALBUM) don't set it.
+  metadata      Json?
   createdAt     DateTime @default(now())
 
   actor Studio @relation(fields: [actorStudioId], references: [id], onDelete: Cascade)
@@ -408,4 +419,40 @@ model Permission {
   studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@map("permissions")
+}
+
+/// The Photobook demo, now server-real instead of localStorage — see
+/// frontend/src/app/photobook/page.tsx. Photos referenced from `cover`/
+/// `pages` are real Vercel Blob URLs, resized via resizeForPhotobook
+/// (2048px long edge, 72dpi — a print-preview, not the full original) at
+/// upload time, same pipeline as the real Album's Download output. Kept as
+/// one JSON blob per record (not normalized per-page) since it's only ever
+/// read/written whole by the editor and the public viewer, never queried
+/// by individual page.
+model Photobook {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studioId     String   @db.Uuid
+  /// Short public id — the /photobook/album/[shareId] link. Not the row's
+  /// own `id`, same reasoning as Album.linkToken: never leak the internal
+  /// UUID into a link handed to a client.
+  shareId      String   @unique
+  title        String
+  albumType    String // "portrait" | "square" | "landscape"
+  pageMode     String // "single" | "spread"
+  cover        Json? // CoverSpec | null
+  pages        Json // FlipPage[]
+  pageWidthPx  Int
+  pageHeightPx Int
+  views        Int      @default(0)
+  createdAt    DateTime @default(now())
+  /// Demo lifetime — 30 days from creation, same policy as when this was
+  /// localStorage-backed; unrelated to the monthly creation quota
+  /// (Studio.plan → entitlements.photobooksPerMonth), which counts new
+  /// Photobooks created this month, not how long an existing one lasts.
+  expiresAt    DateTime
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@map("photobooks")
 }

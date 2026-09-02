@@ -26,6 +26,7 @@ export async function GET() {
       description: studio.description,
       logoUrl: studio.logoUrl,
       role: studio.role,
+      plan: studio.plan,
     },
   });
 }

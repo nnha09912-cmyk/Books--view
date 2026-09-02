@@ -20,14 +20,14 @@ import {
 } from "./layoutEngine";
 import { AlbumBookViewer } from "./AlbumBookViewer";
 import {
-  type AlbumHistoryEntry,
-  loadHistory,
-  addHistoryEntry,
-  removeHistoryEntry,
+  type PhotobookRecord,
+  fetchHistory,
+  createPhotobook,
+  deletePhotobook,
   toAlbumBook,
   formatCreatedAt,
   formatExpiry,
-} from "./albumHistory";
+} from "./photobookApi";
 import styles from "./album-book.module.css";
 
 const ORIENTATIONS: { id: AlbumOrientation; label: string }[] = [
@@ -86,36 +86,10 @@ async function loadImageDims(file: File): Promise<DemoPhoto> {
   }
 }
 
-/** Downscales further (1000px / q0.75) purely for the localStorage
- * record read by /photobook/album/[albumId] — see drawScaled's comment. */
-function blobUrlToDataUrl(blobUrl: string): Promise<string> {
-  return drawScaled(blobUrl, 1000, 0.75).then(({ url }) =>
-    fetch(url)
-      .then((r) => r.blob())
-      .then(
-        (blob) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          })
-      )
-      .finally(() => URL.revokeObjectURL(url))
-  );
-}
-
-async function toPersistableBook(book: AlbumBook): Promise<AlbumBook> {
-  const convert = async (photo: DemoPhoto): Promise<DemoPhoto> => ({ ...photo, url: await blobUrlToDataUrl(photo.url) });
-  const cover: CoverSpec | null =
-    book.cover?.kind === "photo" ? { kind: "photo", photo: await convert(book.cover.photo) } : book.cover;
-  const pages = await Promise.all(book.pages.map(async (p) => ({ ...p, image: await convert(p.image) })));
-  return { cover, pages };
-}
-
-/** PHOTOBOOK — standalone demo of docs "XemAlbum.md". Client-only: photos
- * live as object URLs in component state, nothing is uploaded or written
- * to Prisma/Photo — this proves the auto-layout + page-flip concept without
+/** PHOTOBOOK — demo of docs "XemAlbum.md", now a real server-persisted
+ * feature. Editing itself stays exactly as before — photos live as object
+ * URLs in component state, arranging/cover-picking never touches the
+ * network — this proves the auto-layout + page-flip concept without
  * touching Gallery, Photo Proofing, Selection Manager, Filter & Copy, or
  * the 3D Carousel, per the spec's own module-boundary rule. This page is
  * always the full editor; the "Chia sẻ" link points clients to the
@@ -143,13 +117,19 @@ export default function PhotobookPage() {
   const [coverPhotoId, setCoverPhotoId] = useState<string | null>(null);
   const [coverMaterialId, setCoverMaterialId] = useState(COVER_MATERIALS[0].id);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
-  const [history, setHistory] = useState<AlbumHistoryEntry[]>([]);
+  const [history, setHistory] = useState<PhotobookRecord[]>([]);
+  const [creating, setCreating] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   // What the open viewer is actually showing — decoupled from
   // photobookName (the create-form's current draft) so reopening an
   // older Lịch sử Album entry displays THAT album's own name.
   const [activeName, setActiveName] = useState("");
+  // Internal id (delete target / history matching) vs. shareId (the public
+  // /photobook/album/{shareId} link) — split apart now that the server
+  // record has two different ids, unlike the old localStorage entry which
+  // used one id for both.
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
+  const [activeShareId, setActiveShareId] = useState<string | undefined>(undefined);
   // Panel 2's own rendered height is the master height for all three
   // panels. CSS Grid stretch + flex-basis:0 alone can't express "this
   // one sibling's natural size, capping the other two" — an auto-sized
@@ -163,7 +143,7 @@ export default function PhotobookPage() {
   const [panelHeight, setPanelHeight] = useState<number | null>(null);
 
   useEffect(() => {
-    setHistory(loadHistory());
+    fetchHistory().then(setHistory);
   }, []);
 
   useEffect(() => {
@@ -230,8 +210,8 @@ export default function PhotobookPage() {
     return { kind: "material", material };
   }
 
-  function buildAndShowAlbum(mode: boolean) {
-    if (!dims || photos.length === 0) return;
+  async function buildAndShowAlbum(mode: boolean) {
+    if (!dims || photos.length === 0 || creating) return;
     const built = buildAlbumBook(photos, mode, resolveCover());
     const aspect = dims.pageWidth / dims.pageHeight;
     let h = MAX_PAGE_PX.h;
@@ -245,26 +225,32 @@ export default function PhotobookPage() {
     setBook(built);
     setActiveName(photobookName);
     setViewerOpen(true);
+    setActiveShareId(undefined);
 
-    // Persist immediately: create a unique albumId, save the complete
-    // album record, and that becomes /album/{albumId} — the standalone
-    // route reads this record directly, not this page's React state,
-    // so the link keeps working in a new tab, pasted fresh, refreshed,
-    // or after /photobook itself is closed.
-    toPersistableBook(built)
-      .then((snap) => {
-        const { list, entry, saved } = addHistoryEntry(
-          snap,
-          px,
-          photobookName,
-          orientation ?? "portrait",
-          mode ? "single" : "spread"
-        );
-        setHistory(list);
-        setActiveEntryId(entry.albumId);
-        if (!saved) toast("Album quá lớn để tạo link chia sẻ — thử bớt ảnh rồi tạo lại");
-      })
-      .catch(() => toast("Không thể chuẩn bị link chia sẻ cho album này"));
+    // Persist: upload every photo (cover + pages) to the server — resized
+    // to 2048px/72dpi, saved as a real Photobook row — and that becomes
+    // /photobook/album/{shareId}. The standalone viewer route reads that
+    // record from the database, not this page's React state, so the link
+    // keeps working in a new tab, pasted fresh, refreshed, or after
+    // /photobook itself is closed.
+    setCreating(true);
+    try {
+      const entry = await createPhotobook(
+        built,
+        px,
+        photobookName,
+        orientation ?? "portrait",
+        mode ? "single" : "spread"
+      );
+      setHistory((h) => [entry, ...h]);
+      setActiveEntryId(entry.id);
+      setActiveShareId(entry.shareId);
+      toast("Đã tạo Photobook và link chia sẻ");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Không thể tạo link chia sẻ cho album này");
+    } finally {
+      setCreating(false);
+    }
   }
 
   function handleCreateAlbum() {
@@ -273,19 +259,27 @@ export default function PhotobookPage() {
 
   /** Reopen an already-created album from Lịch sử Album — a client not
    * having viewed it yet is not a reason to build it again. */
-  function openHistoryEntry(entry: AlbumHistoryEntry) {
+  function openHistoryEntry(entry: PhotobookRecord) {
     setBook(toAlbumBook(entry));
-    setPagePx(entry.pagePx);
+    setPagePx({ w: entry.pageWidthPx, h: entry.pageHeightPx });
     setActiveName(entry.title === "Album không tên" ? "" : entry.title);
-    setActiveEntryId(entry.albumId);
+    setActiveEntryId(entry.id);
+    setActiveShareId(entry.shareId);
     setViewerOpen(true);
   }
 
-  function confirmDeleteEntry() {
+  async function confirmDeleteEntry() {
     if (!pendingDeleteId) return;
-    setHistory(removeHistoryEntry(pendingDeleteId));
-    if (activeEntryId === pendingDeleteId) setViewerOpen(false);
+    const id = pendingDeleteId;
     setPendingDeleteId(null);
+    setHistory((h) => h.filter((e) => e.id !== id));
+    if (activeEntryId === id) setViewerOpen(false);
+    try {
+      await deletePhotobook(id);
+    } catch {
+      toast("Không thể xoá album, thử lại nhé");
+      fetchHistory().then(setHistory);
+    }
   }
 
   /** Section 10 — "Chuyển kiểu trang sẽ thay đổi cách hiển thị album."
@@ -306,7 +300,7 @@ export default function PhotobookPage() {
     buildAndShowAlbum(next);
   }
 
-  const canCreate = photos.length > 0 && !!dims && !analyzing;
+  const canCreate = photos.length > 0 && !!dims && !analyzing && !creating;
   const visibleThumbs = photos.slice(0, THUMB_PREVIEW_LIMIT);
   const overflowCount = photos.length - visibleThumbs.length;
 
@@ -322,7 +316,7 @@ export default function PhotobookPage() {
             Photobook
           </h1>
           <p className="text-sm" style={{ margin: 0 }}>
-            Demo độc lập — tạo album tự động, không ảnh hưởng dữ liệu thật
+            Tạo album flipbook tự động cho khách xem trước khi in
           </p>
         </div>
       </div>
@@ -529,10 +523,10 @@ export default function PhotobookPage() {
               style={{ height: "auto", padding: "18px 20px" }}
             >
               <BookOpen size={32} strokeWidth={2.75} />
-              Tạo Album
+              {creating ? "Đang tạo..." : "Tạo Album"}
             </Button>
             <p className={styles.modeHint} style={{ margin: 0 }}>
-              Album demo: tự động xóa sau 1 tháng.
+              Album tự động xóa sau 1 tháng.
             </p>
 
             <div className={styles.historySection}>
@@ -544,7 +538,7 @@ export default function PhotobookPage() {
               ) : (
                 <div className={styles.historyList}>
                   {history.map((entry) => (
-                    <div key={entry.albumId} className={styles.historyItem}>
+                    <div key={entry.id} className={styles.historyItem}>
                       <button
                         type="button"
                         className={styles.historyItemMain}
@@ -572,7 +566,7 @@ export default function PhotobookPage() {
                         type="button"
                         className={styles.historyDeleteBtn}
                         aria-label="Xoá album"
-                        onClick={() => setPendingDeleteId(entry.albumId)}
+                        onClick={() => setPendingDeleteId(entry.id)}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -590,7 +584,7 @@ export default function PhotobookPage() {
           book={book}
           albumName={activeName.trim() || "Album Demo"}
           coverTitle={activeName.trim() || undefined}
-          shareId={activeEntryId ?? undefined}
+          shareId={activeShareId}
           pageWidthPx={pagePx.w}
           pageHeightPx={pagePx.h}
           onClose={() => setViewerOpen(false)}

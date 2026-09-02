@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentStudio } from "@/lib/auth";
 import { DEFAULT_WEBSITE_TEMPLATE, isWebsiteTemplateId } from "@/lib/website-templates";
+import { getEntitlements } from "@/lib/entitlements";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status });
@@ -97,6 +98,14 @@ export async function PATCH(req: NextRequest) {
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError("Dữ liệu không hợp lệ", 400);
   const { templateId, coverPhotoId, featuredPhotoIds, demoAlbumIds, tagline } = parsed.data;
+
+  if (
+    templateId &&
+    templateId !== DEFAULT_WEBSITE_TEMPLATE &&
+    getEntitlements(studio.plan).websiteTemplate !== "all"
+  ) {
+    return jsonError("Gói hiện tại chỉ dùng được mẫu Minimal Elegant — nâng cấp gói để đổi mẫu.", 403);
+  }
 
   if (coverPhotoId) {
     const owned = await prisma.photo.findFirst({

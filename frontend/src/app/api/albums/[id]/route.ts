@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentStudio, hashPassword } from "@/lib/auth";
+import { getEntitlements } from "@/lib/entitlements";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -135,6 +136,12 @@ export async function PATCH(
     return NextResponse.json(
       { error: { message: "Dữ liệu không hợp lệ" } },
       { status: 400 }
+    );
+  }
+  if (parsed.data.downloadEnabled === true && !getEntitlements(studio.plan).download) {
+    return NextResponse.json(
+      { error: { message: "Gói hiện tại chưa cho phép khách tải ảnh — nâng cấp gói để bật." } },
+      { status: 403 }
     );
   }
   const {

@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Traces only the dependencies each route actually needs into
+  // .next/standalone — much smaller than shipping the full node_modules,
+  // which matters on shared hosting (AZDIGI) with disk/inode limits.
+  output: "standalone",
   experimental: {
     serverComponentsExternalPackages: ["sharp"],
   },

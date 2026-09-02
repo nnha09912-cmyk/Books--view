@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getGuestCustomer } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getEntitlements } from "@/lib/entitlements";
 
 const bodySchema = z.object({
   text: z.string().trim().min(1, "Nội dung không được để trống").max(1000),
@@ -20,7 +21,7 @@ async function resolvePhotoAndAlbum(photoId: string, albumId: string) {
 
   const album = await prisma.album.findUnique({
     where: { id: albumId },
-    select: { status: true, expiryDate: true },
+    select: { status: true, expiryDate: true, studioId: true },
   });
   return { photo, album };
 }
@@ -93,6 +94,17 @@ export async function POST(
   if (album.expiryDate && album.expiryDate < new Date()) {
     return NextResponse.json(
       { error: { message: "Album đã hết hạn, không thể gửi nhận xét." } },
+      { status: 403 }
+    );
+  }
+
+  const ownerStudio = await prisma.studio.findUnique({
+    where: { id: album.studioId },
+    select: { plan: true },
+  });
+  if (!ownerStudio || !getEntitlements(ownerStudio.plan).recommend) {
+    return NextResponse.json(
+      { error: { message: "Album này chưa bật tính năng Recommend." } },
       { status: 403 }
     );
   }

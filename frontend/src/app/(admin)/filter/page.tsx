@@ -2,12 +2,13 @@
 
 import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Users, Download, FolderOpen, Search, Play, Type, FileJson, Upload } from "lucide-react";
+import { Users, Download, FolderOpen, Search, Play, Type, FileJson, Upload, Lock } from "lucide-react";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useStudio } from "@/lib/use-studio";
 import { api } from "@/lib/api-client";
+import { getEntitlements } from "@/lib/entitlements";
 import type { AlbumSummary, AlbumDetail, AlbumCustomer } from "@/lib/types";
 import {
   isFileSystemAccessSupported,
@@ -239,6 +240,16 @@ export default function FilterPage() {
     api<{ data: AlbumSummary[] }>("/api/albums").then((res) => setAlbums(res.data));
   }, [studio]);
 
+  // "Lọc Album" is the default tab, but it's Pro+ only — a Free studio
+  // would otherwise land on a tab it can't use. Corrects once the plan is
+  // known; doesn't touch activeTab again after that (a Free studio may
+  // still switch back manually, the TabsTrigger below just stays disabled).
+  useEffect(() => {
+    if (studio && !getEntitlements(studio.plan).filterAlbumMode) {
+      setActiveTab("name");
+    }
+  }, [studio]);
+
   useEffect(() => {
     if (!albumId) {
       setAlbum(null);
@@ -258,6 +269,8 @@ export default function FilterPage() {
   }, [albumId]);
 
   if (studioLoading || !studio) return null;
+
+  const entitlements = getEntitlements(studio.plan);
 
   const filteredAlbums =
     albums?.filter((a) => a.name.toLowerCase().includes(albumSearch.trim().toLowerCase())) ?? null;
@@ -630,33 +643,46 @@ export default function FilterPage() {
         </div>
       )}
 
-      <div className="field mb-lg" style={{ maxWidth: 420 }}>
-        <label style={{ fontSize: 15 }}>Chọn album</label>
-        <input
-          className="input"
-          placeholder="Tìm album theo tên…"
-          value={albumSearch}
-          onChange={(e) => setAlbumSearch(e.target.value)}
-        />
-        <select
-          className="input"
-          value={albumId}
-          onChange={(e) => {
-            setAlbumId(e.target.value);
-            setAlbumSearch("");
-          }}
-        >
-          <option value="">— Chọn album —</option>
-          {filteredAlbums?.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-        {filteredAlbums && albumSearch.trim() && filteredAlbums.length === 0 && (
-          <p className="text-xs text-secondary">Không tìm thấy album nào khớp “{albumSearch.trim()}”.</p>
-        )}
-      </div>
+      {entitlements.filterAlbumMode ? (
+        <div className="field mb-lg" style={{ maxWidth: 420 }}>
+          <label style={{ fontSize: 15 }}>Chọn album</label>
+          <input
+            className="input"
+            placeholder="Tìm album theo tên…"
+            value={albumSearch}
+            onChange={(e) => setAlbumSearch(e.target.value)}
+          />
+          <select
+            className="input"
+            value={albumId}
+            onChange={(e) => {
+              setAlbumId(e.target.value);
+              setAlbumSearch("");
+            }}
+          >
+            <option value="">— Chọn album —</option>
+            {filteredAlbums?.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+          {filteredAlbums && albumSearch.trim() && filteredAlbums.length === 0 && (
+            <p className="text-xs text-secondary">Không tìm thấy album nào khớp “{albumSearch.trim()}”.</p>
+          )}
+        </div>
+      ) : (
+        <div className="card mb-lg" style={{ maxWidth: 420 }}>
+          <div className="card-body text-sm flex items-start gap-sm">
+            <Lock size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>
+              Gói hiện tại chưa dùng được “Lọc theo Album” (chọn album + Selection Manager thật) —
+              nâng cấp lên Pro trở lên để mở khoá. Tab <strong>Lọc Tên</strong> bên dưới vẫn dùng
+              được bình thường.
+            </span>
+          </div>
+        </div>
+      )}
 
       <div
         style={{
@@ -740,9 +766,16 @@ export default function FilterPage() {
                   Click chọn 1 · Shift+Click chọn khoảng · Cmd/Ctrl+Click chọn rời
                 </p>
 
-                <Button onClick={exportSelection} variant="secondary" style={{ marginTop: 16, width: "100%" }}>
+                <Button
+                  onClick={exportSelection}
+                  variant="secondary"
+                  disabled={!entitlements.filterExportJson}
+                  title={entitlements.filterExportJson ? undefined : "Cần gói VIP trở lên"}
+                  style={{ marginTop: 16, width: "100%" }}
+                >
                   <Download size={16} />
                   Xuất cho Books Filter (.json)
+                  {!entitlements.filterExportJson && " — cần gói VIP"}
                 </Button>
               </>
             )}
@@ -827,9 +860,25 @@ export default function FilterPage() {
 
               <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FilterTab)} className="mt-md">
                 <TabsList variant="line">
-                  <TabsTrigger value="album">Lọc Album</TabsTrigger>
+                  <TabsTrigger
+                    value="album"
+                    disabled={!entitlements.filterAlbumMode}
+                    title={entitlements.filterAlbumMode ? undefined : "Cần gói Pro trở lên"}
+                    className="flex items-center gap-sm"
+                  >
+                    Lọc Album
+                    {!entitlements.filterAlbumMode && <Lock size={12} />}
+                  </TabsTrigger>
                   <TabsTrigger value="name">Lọc Tên</TabsTrigger>
-                  <TabsTrigger value="json">Lọc JSON</TabsTrigger>
+                  <TabsTrigger
+                    value="json"
+                    disabled={!entitlements.filterExternalApp}
+                    title={entitlements.filterExternalApp ? undefined : "Cần gói VIP trở lên"}
+                    className="flex items-center gap-sm"
+                  >
+                    Lọc JSON
+                    {!entitlements.filterExternalApp && <Lock size={12} />}
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* ---------- Lọc Album ---------- */}

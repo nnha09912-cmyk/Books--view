@@ -3,6 +3,7 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/db";
 import { getCurrentStudio } from "@/lib/auth";
+import { getEntitlements, startOfCurrentMonth } from "@/lib/entitlements";
 
 export async function GET() {
   const studio = await getCurrentStudio();
@@ -70,6 +71,24 @@ export async function POST(req: NextRequest) {
     );
   }
   const { name, description, template, expiryDate, maxSelectionCount } = parsed.data;
+
+  const entitlements = getEntitlements(studio.plan);
+  if (Number.isFinite(entitlements.albumsPerMonth)) {
+    const createdThisMonth = await prisma.album.count({
+      where: { studioId: studio.id, createdAt: { gte: startOfCurrentMonth() } },
+    });
+    if (createdThisMonth >= entitlements.albumsPerMonth) {
+      return NextResponse.json(
+        {
+          error: {
+            message: `Gói hiện tại chỉ tạo được ${entitlements.albumsPerMonth} album/tháng — đã dùng hết, nâng cấp gói hoặc chờ sang tháng sau.`,
+          },
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   const linkToken = randomBytes(6).toString("hex");
 
   const album = await prisma.album.create({

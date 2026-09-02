@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -9,7 +9,17 @@ import { AuthShell } from "@/components/layout/auth-shell";
 import { BrandMark } from "@/components/brand-mark";
 import { api, ApiError } from "@/lib/api-client";
 
+/** useSearchParams() bails out of static prerendering unless wrapped in
+ * Suspense — required for `next build` to succeed, not just a lint nit. */
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordForm />
+    </Suspense>
+  );
+}
+
+function ResetPasswordForm() {
   const router = useRouter();
   const token = useSearchParams().get("token") ?? "";
   const [newPassword, setNewPassword] = useState("");

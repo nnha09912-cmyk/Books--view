@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -1256,7 +1256,17 @@ function WebsiteStudioTab() {
 
 const SETTINGS_TABS = ["profile", "website", "billing", "api", "notif"] as const;
 
+/** useSearchParams() bails out of static prerendering unless wrapped in
+ * Suspense — required for `next build` to succeed, not just a lint nit. */
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageInner />
+    </Suspense>
+  );
+}
+
+function SettingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");

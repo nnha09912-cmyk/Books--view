@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 import { OwnerShell } from "@/components/system-owner/owner-shell";
 import { StatusPill } from "@/components/system-owner/status-pill";
+import { PlanBadge } from "@/components/system-owner/plan-badge";
+import { Button } from "@/components/ui/button";
 import { useSystemOwner } from "@/lib/use-system-owner";
 import { api, ApiError } from "@/lib/api-client";
+import { PLANS, PLAN_LABELS, PLAN_PRICES, type Plan } from "@/lib/entitlements";
 
 interface OwnerUserAlbum {
   id: string;
@@ -24,6 +28,7 @@ interface OwnerUserDetail {
   status: "Active" | "Suspended";
   lastLoginAt: string | null;
   createdAt: string;
+  plan: Plan;
   albums: OwnerUserAlbum[];
 }
 
@@ -31,15 +36,37 @@ export default function SystemOwnerUserDetailPage({ params }: { params: { id: st
   const { owner, loading } = useSystemOwner();
   const [detail, setDetail] = useState<OwnerUserDetail | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [planDraft, setPlanDraft] = useState<Plan>("FREE");
+  const [savingPlan, setSavingPlan] = useState(false);
 
   useEffect(() => {
     if (!owner) return;
     api<OwnerUserDetail>(`/api/admin/users/${params.id}`)
-      .then(setDetail)
+      .then((d) => {
+        setDetail(d);
+        setPlanDraft(d.plan);
+      })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 404) setNotFound(true);
       });
   }, [owner, params.id]);
+
+  async function handleSavePlan() {
+    if (!detail || planDraft === detail.plan) return;
+    setSavingPlan(true);
+    try {
+      const res = await api<{ plan: Plan }>(`/api/admin/users/${params.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ plan: planDraft }),
+      });
+      setDetail((d) => (d ? { ...d, plan: res.plan } : d));
+      toast(`Đã đổi gói sang ${PLAN_LABELS[res.plan]}`);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không thể đổi gói");
+    } finally {
+      setSavingPlan(false);
+    }
+  }
 
   if (loading || !owner) return null;
 
@@ -89,6 +116,40 @@ export default function SystemOwnerUserDetailPage({ params }: { params: { id: st
               <span className="text-sm">Ngày tạo</span>
               <div className="num" style={{ fontSize: 18 }}>
                 {new Date(detail.createdAt).toLocaleDateString("vi-VN")}
+              </div>
+            </div>
+          </div>
+
+          <div className="card mb-lg">
+            <div className="card-body lg">
+              <div className="flex items-center justify-between mb-sm">
+                <h3 style={{ margin: 0 }}>Gói dịch vụ</h3>
+                <PlanBadge plan={detail.plan} />
+              </div>
+              <p className="text-secondary text-sm mb-md">
+                Chưa có cổng thanh toán tự động — xác nhận đã nhận thanh toán rồi mới đổi gói tại
+                đây. Mỗi lần đổi đều được ghi Audit Log.
+              </p>
+              <div className="flex items-center gap-sm">
+                <select
+                  className="input"
+                  style={{ maxWidth: 220 }}
+                  value={planDraft}
+                  onChange={(e) => setPlanDraft(e.target.value as Plan)}
+                >
+                  {PLANS.map((p) => (
+                    <option key={p} value={p}>
+                      {PLAN_LABELS[p]} — {PLAN_PRICES[p].toLocaleString("vi-VN")}đ/năm
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  disabled={planDraft === detail.plan || savingPlan}
+                  onClick={handleSavePlan}
+                >
+                  {savingPlan ? "Đang lưu..." : "Lưu gói"}
+                </Button>
               </div>
             </div>
           </div>
