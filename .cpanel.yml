@@ -1,11 +1,6 @@
 ---
 deployment:
   tasks:
-    # DEPLOYPATH phải là đường dẫn thật trên server (theo username cPanel của
-    # bạn) — đây là nơi Setup Node.js App trỏ "Application root" vào. Điền
-    # đúng giá trị khi thiết lập Node.js App trong cPanel AZDIGI.
-    - export DEPLOYPATH=/home/hqcnuidc/guikhach-app/
-    # Repo Git gốc không phải là app — toàn bộ source thật nằm trong
-    # frontend/ (xem md new/31 - Deployment Readiness (AZDIGI).md) — chỉ
-    # copy nội dung frontend/, không copy cả repo.
+    - export DEPLOYPATH=/home/hqcnuidc/guikhach-deploy/
+    - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R frontend/. $DEPLOYPATH
