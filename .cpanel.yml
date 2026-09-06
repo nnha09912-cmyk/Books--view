@@ -3,4 +3,4 @@ deployment:
   tasks:
     - export DEPLOYPATH=/home/hqcnuidc/guikhach-deploy/
     - /bin/mkdir -p $DEPLOYPATH
-    - /bin/cp -R frontend/. $DEPLOYPATH# Guikhach production deployment
+    - /bin/cp -R frontend/. $DEPLOYPATH
